@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient as createPlainClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -21,11 +22,17 @@ export async function sendeCode(
     return { schritt: "email", email, fehler: "Bitte eine gültige E-Mail-Adresse eingeben." };
   }
 
-  const supabase = await createClient();
+  // Implicit Flow: Der Link aus der Mail trägt die Sitzung selbst und
+  // funktioniert daher auch auf einem anderen Gerät (PC anfordern, Handy öffnen).
+  const supabase = createPlainClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { flowType: "implicit", persistSession: false } },
+  );
   const origin = (await headers()).get("origin");
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: origin ? `${origin}/auth/callback` : undefined },
+    options: { emailRedirectTo: origin ? `${origin}/auth/link` : undefined },
   });
   if (error) {
     return { schritt: "email", email, fehler: "Der Code konnte nicht gesendet werden. Bitte später erneut versuchen." };
