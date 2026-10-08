@@ -76,6 +76,7 @@ Gleiche Felder wie die Vorlage plus `firma_id uuid not null`, `fahrzeugart_id uu
 | pruefpunkt_id | uuid → pruefpunkte, null | Verweis, kann später ausgeblendet sein |
 | abschnitt, frage | text | Kopie |
 | mangel_bei_ja | boolean | Kopie |
+| monatliche_fotos | boolean | Kopie; zählt für „Reifenfotos diesen Monat erledigt“ |
 | antwort_ja | boolean | |
 | ist_mangel | boolean | `antwort_ja = mangel_bei_ja` |
 | bemerkung | text null | Pflicht bei Mangel |
@@ -126,6 +127,9 @@ Gleiche Felder wie die Vorlage plus `firma_id uuid not null`, `fahrzeugart_id uu
 
 - `kontrolle_einreichen(p jsonb) → jsonb` (security definer): prüft Fahrer, Fahrzeug, Anhänger, dass alle sichtbaren aktiven Prüfpunkte beantwortet sind, Mangel ⇒ Bemerkung + Foto, monatliche Reifenfotos falls in diesem Monat für das Fahrzeug noch keine vorliegen, Unterschrift vorhanden. Legt `kontrollen`, `antworten`, `maengel` an, erledigt `kontrolle_fehlt` des Tages. Rückgabe: `{kontrolle_id, maengel: [...], verkehrsleiter_emails: [...]}`.
 - `mangel_schliessen(id uuid, vermerk text)`.
+- `maengel_gemailt(ids uuid[])`: setzt `gemailt_am` (meldender Fahrer oder Verwalter).
+- `reifenfotos_zuletzt(f uuid)`: letzte Reifenfotos je Fahrzeug der Firma, auch aus Kontrollen anderer Fahrer.
+- `ordner_uuid(name, stufe)` und `kontrolle_offen(k)`: Hilfen für die Storage-Policies (Upload nur, solange die Kontrolle nicht eingereicht ist).
 - `fehlende_kontrollen_pruefen()` (nur `postgres`, von pg_cron).
 
 ## Sichtbarkeit von Prüfpunkten (reine Logik, `src/lib/kontrolle/`)

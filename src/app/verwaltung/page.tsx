@@ -5,13 +5,27 @@ import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { firmaAnlegen } from "./actions";
 
 export default async function Verwaltung() {
-  const { mitgliedschaften } = await holeNutzer();
+  const { supabase, user, mitgliedschaften } = await holeNutzer();
   const firmen = mitgliedschaften.filter((m) => istVerwalter(m.rolle));
+  // Wer selbst als Fahrer eingetragen ist, kommt von hier zur eigenen Kontrolle.
+  const { count: alsFahrer } = await supabase
+    .from("fahrer")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("aktiv", true);
 
   return (
     <main className="flex flex-1 flex-col">
       <Kopfleiste titel="Verkehrsleiter" untertitel="Deine Firmen" />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-5">
+        {(alsFahrer ?? 0) > 0 && (
+          <Link
+            href="/fahrer/kontrolle"
+            className="flex h-12 items-center justify-center rounded-xl bg-marke-gelb font-semibold text-marke-blau"
+          >
+            Eigene Abfahrtskontrolle starten
+          </Link>
+        )}
         {firmen.length > 0 && (
           <Karte titel="Firmen">
             <ul className="flex flex-col gap-2">

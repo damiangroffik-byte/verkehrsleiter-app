@@ -24,10 +24,10 @@ description: "Aufgabenliste für die Umsetzung der Abfahrtskontrolle"
 
 **Purpose**: Abhängigkeiten und Grundgerüst für Tests
 
-- [ ] T001 `vitest` als Dev-Abhängigkeit und `nodemailer` + `@types/nodemailer` installieren; in `package.json` Skript `"test": "vitest run"` ergänzen
-- [ ] T002 [P] `vitest.config.ts` im Repository-Root anlegen (Umgebung `node`, Alias `@` → `src`)
-- [ ] T003 [P] Neue Umgebungsvariablen in `.env.example` ergänzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORT`, `MAIL_ABSENDER`, `BENACHRICHTIGUNG_GEHEIMNIS`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY` (mit Kommentar „nur für Aufräumen“)
-- [ ] T004 [P] Browser-Client `src/lib/supabase/browser.ts` mit `createBrowserClient` aus `@supabase/ssr` anlegen (für Foto- und Unterschrift-Uploads, research R2)
+- [x] T001 `vitest` als Dev-Abhängigkeit und `nodemailer` + `@types/nodemailer` installieren; in `package.json` Skript `"test": "vitest run"` ergänzen
+- [x] T002 [P] `vitest.config.ts` im Repository-Root anlegen (Umgebung `node`, Alias `@` → `src`)
+- [x] T003 [P] Neue Umgebungsvariablen in `.env.example` ergänzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORT`, `MAIL_ABSENDER`, `BENACHRICHTIGUNG_GEHEIMNIS`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY` (mit Kommentar „nur für Aufräumen“)
+- [x] T004 [P] Browser-Client `src/lib/supabase/browser.ts` mit `createBrowserClient` aus `@supabase/ssr` anlegen (für Foto- und Unterschrift-Uploads, research R2)
 
 ---
 
@@ -37,18 +37,18 @@ description: "Aufgabenliste für die Umsetzung der Abfahrtskontrolle"
 
 **⚠️ CRITICAL**: Keine Story-Arbeit vor Abschluss dieser Phase
 
-- [ ] T005 Migration `supabase/migrations/0003_abfahrtskontrolle.sql`, Teil 1: Funktionen `ist_verkehrsleiter(f uuid)` und `eigener_fahrer(f uuid)` (security definer, `set search_path = ''`, Execute nur für `authenticated`); Tabelle `vorlage_pruefpunkte` mit Feldern laut data-model (`bedingung text check in ('immer','adr','anhaenger')`, `mangel_bei_ja boolean`, `monatliche_fotos boolean`) und Inhalt von Anhang A der Spec; RLS nur `select` für `authenticated`
-- [ ] T006 Migration 0003, Teil 2: Tabelle `pruefpunkte` (Felder der Vorlage + `firma_id uuid not null`, `fahrzeugart_id uuid not null`, `aktiv boolean default true`); Policy „Verwalter verwalten Fahrzeugarten“ auf `fahrzeugarten` durch Verkehrsleiter-Policy ersetzen; RLS `pruefpunkte`: `select` Mitglieder, `insert/update` nur `ist_verkehrsleiter(firma_id)`, kein `delete`
-- [ ] T007 Migration 0003, Teil 3: Tabelle `firma_einstellungen` (`kontrolle_wochentage smallint[] default '{1,2,3,4,5}'`, `kontrolle_bis time default '09:00'`, `zeitzone text default 'Europe/Berlin'`); RLS `select` Verwalter, `update` nur Verkehrsleiter; Trigger nach Insert auf `firmen`: Einstellungen anlegen, Fahrzeugart „Standard“ anlegen, Vorlage in `pruefpunkte` kopieren; dasselbe einmalig für alle bestehenden Firmen
-- [ ] T008 Migration 0003, Teil 4: Tabellen `kontrollen`, `antworten`, `maengel` (`status text check in ('offen','behoben') default 'offen'`), `kontrolle_fehlt` (`unique (fahrer_id, datum)`) mit Feldern, Indizes und RLS laut data-model; keine Update/Delete-Policies auf `kontrollen` und `antworten`
-- [ ] T009 Migration 0003, Teil 5: Funktion `kontrolle_einreichen(p jsonb) returns jsonb` (security definer) mit allen Prüfungen aus data-model (eigener Fahrer, Fahrzeug/Anhänger der Firma, alle sichtbaren aktiven Prüfpunkte beantwortet, Mangel ⇒ Bemerkung und mind. 1 Foto, monatliche Reifenfotos, Unterschrift); legt Kontrolle, Antworten mit Kopie von Abschnitt/Frage/Mangel-Antwort und Mängel an; erledigt `kontrolle_fehlt` desselben Tages; liefert `{kontrolle_id, maengel, verkehrsleiter_emails}`
-- [ ] T010 Migration 0003, Teil 6: Funktion `mangel_schliessen(id uuid, vermerk text)` (nur Verwalter, Vermerk nicht leer, nur `offen → behoben`, setzt `behoben_am`, `behoben_von`)
-- [ ] T011 Migration `supabase/migrations/0004_kontrollen_storage.sql`: privater Bucket `kontrollen`; Storage-Policies laut data-model (Insert in eigenen Firmenordner, Select für Verwalter oder Fahrer der Kontrolle, kein Update/Delete)
-- [ ] T012 SQL-Tests `supabase/tests/abfahrtskontrolle.sql` (Transaktion + Rollback): Standard-Checkliste für neue Firma, Fahrer reicht ein, unvollständige Kontrolle wird abgelehnt, Mangel ohne Foto abgelehnt, Kontrolle nicht änderbar, Unternehmer darf Prüfpunkte nicht ändern, Fahrer fremder Firma sieht nichts
-- [ ] T013 Migrationen 0003 und 0004 über den Supabase-Konnektor anwenden, T012 ausführen, Sicherheitsberater (`get_advisors`) prüfen und Befunde beheben
-- [ ] T014 [P] Reine Regeln in `src/lib/kontrolle/regeln.ts`: `istSichtbar(pruefpunkt, {adr, mitAnhaenger})`, `istMangel(pruefpunkt, antwortJa)`, `reifenfotosFaellig(letzteReifenfotos, jetzt)`, `pruefeEntwurf(entwurf, pruefpunkte)` (liefert erstes fehlendes Feld)
-- [ ] T015 [P] Tests `src/lib/kontrolle/regeln.test.ts` für alle Funktionen aus T014 (ADR, Anhänger, Ja/Nein als Mangel, Monatswechsel, fehlende Unterschrift)
-- [ ] T016 Typen für Tabellen über `generate_typescript_types` erzeugen und in `src/lib/datenbank.types.ts` ablegen
+- [x] T005 Migration `supabase/migrations/0003_abfahrtskontrolle.sql`, Teil 1: Funktionen `ist_verkehrsleiter(f uuid)` und `eigener_fahrer(f uuid)` (security definer, `set search_path = ''`, Execute nur für `authenticated`); Tabelle `vorlage_pruefpunkte` mit Feldern laut data-model (`bedingung text check in ('immer','adr','anhaenger')`, `mangel_bei_ja boolean`, `monatliche_fotos boolean`) und Inhalt von Anhang A der Spec; RLS nur `select` für `authenticated`
+- [x] T006 Migration 0003, Teil 2: Tabelle `pruefpunkte` (Felder der Vorlage + `firma_id uuid not null`, `fahrzeugart_id uuid not null`, `aktiv boolean default true`); Policy „Verwalter verwalten Fahrzeugarten“ auf `fahrzeugarten` durch Verkehrsleiter-Policy ersetzen; RLS `pruefpunkte`: `select` Mitglieder, `insert/update` nur `ist_verkehrsleiter(firma_id)`, kein `delete`
+- [x] T007 Migration 0003, Teil 3: Tabelle `firma_einstellungen` (`kontrolle_wochentage smallint[] default '{1,2,3,4,5}'`, `kontrolle_bis time default '09:00'`, `zeitzone text default 'Europe/Berlin'`); RLS `select` Verwalter, `update` nur Verkehrsleiter; Trigger nach Insert auf `firmen`: Einstellungen anlegen, Fahrzeugart „Standard“ anlegen, Vorlage in `pruefpunkte` kopieren; dasselbe einmalig für alle bestehenden Firmen
+- [x] T008 Migration 0003, Teil 4: Tabellen `kontrollen`, `antworten`, `maengel` (`status text check in ('offen','behoben') default 'offen'`), `kontrolle_fehlt` (`unique (fahrer_id, datum)`) mit Feldern, Indizes und RLS laut data-model; keine Update/Delete-Policies auf `kontrollen` und `antworten`
+- [x] T009 Migration 0003, Teil 5: Funktion `kontrolle_einreichen(p jsonb) returns jsonb` (security definer) mit allen Prüfungen aus data-model (eigener Fahrer, Fahrzeug/Anhänger der Firma, alle sichtbaren aktiven Prüfpunkte beantwortet, Mangel ⇒ Bemerkung und mind. 1 Foto, monatliche Reifenfotos, Unterschrift); legt Kontrolle, Antworten mit Kopie von Abschnitt/Frage/Mangel-Antwort und Mängel an; erledigt `kontrolle_fehlt` desselben Tages; liefert `{kontrolle_id, maengel, verkehrsleiter_emails}`
+- [x] T010 Migration 0003, Teil 6: Funktion `mangel_schliessen(id uuid, vermerk text)` (nur Verwalter, Vermerk nicht leer, nur `offen → behoben`, setzt `behoben_am`, `behoben_von`)
+- [x] T011 Migration `supabase/migrations/0004_kontrollen_storage.sql`: privater Bucket `kontrollen`; Storage-Policies laut data-model (Insert in eigenen Firmenordner, Select für Verwalter oder Fahrer der Kontrolle, kein Update/Delete)
+- [x] T012 SQL-Tests `supabase/tests/abfahrtskontrolle.sql` (Transaktion + Rollback): Standard-Checkliste für neue Firma, Fahrer reicht ein, unvollständige Kontrolle wird abgelehnt, Mangel ohne Foto abgelehnt, Kontrolle nicht änderbar, Unternehmer darf Prüfpunkte nicht ändern, Fahrer fremder Firma sieht nichts
+- [x] T013 Migrationen 0003 und 0004 über den Supabase-Konnektor anwenden, T012 ausführen, Sicherheitsberater (`get_advisors`) prüfen und Befunde beheben
+- [x] T014 [P] Reine Regeln in `src/lib/kontrolle/regeln.ts`: `istSichtbar(pruefpunkt, {adr, mitAnhaenger})`, `istMangel(pruefpunkt, antwortJa)`, `reifenfotosFaellig(letzteReifenfotos, jetzt)`, `pruefeEntwurf(entwurf, pruefpunkte)` (liefert erstes fehlendes Feld)
+- [x] T015 [P] Tests `src/lib/kontrolle/regeln.test.ts` für alle Funktionen aus T014 (ADR, Anhänger, Ja/Nein als Mangel, Monatswechsel, fehlende Unterschrift)
+- [x] T016 ~~Typen für Tabellen über `generate_typescript_types` erzeugen und in `src/lib/datenbank.types.ts` ablegen~~ Entfallen: Der Code nutzt wie im Grundgerüst eigene Zeilentypen mit `.returns<>()`; Typen in `src/app/fahrer/kontrolle/typen.ts`
 
 **Checkpoint**: Datenbank steht, Regeln getestet
 
@@ -60,13 +60,13 @@ description: "Aufgabenliste für die Umsetzung der Abfahrtskontrolle"
 
 **Independent Test**: quickstart Szenario 1 und 2
 
-- [ ] T017 [P] [US1] Komponente `src/components/JaNein.tsx`: zwei Knöpfe ≥ 44 px, Mangel-Antwort rot umrandet, Tastatur-bedienbar
-- [ ] T018 [P] [US1] Komponente `src/components/Unterschrift.tsx`: Canvas für Finger und Maus, „Löschen“, liefert PNG-Blob
-- [ ] T019 [US1] Seite `src/app/fahrer/kontrolle/page.tsx` (Server): eigene Firma(en) und Fahrer-Datensatz laden, Fahrzeuge (`ist_anhaenger = false`) und Anhänger, Prüfpunkte der Fahrzeugart (Fallback „Standard“), Datum der letzten Reifenfotos je Fahrzeug; Hinweis ohne Firma oder Fahrzeug (Edge Case)
-- [ ] T020 [US1] Client-Ablauf `src/app/fahrer/kontrolle/KontrollAblauf.tsx`: Schritt 1 Fahrzeug/Anhänger, Schritt 2 Prüfpunkte je Abschnitt mit `istSichtbar`, HU/SP/Tacho nur anzeigen (abgelaufen rot, `Frist` aus `src/components/ui.tsx`), Schritt 3 Unterschrift; Prüfung mit `pruefeEntwurf` markiert fehlende Punkte
-- [ ] T021 [US1] Upload der Unterschrift nach `{firma_id}/{kontrolle_id}/unterschrift.png` mit dem Browser-Client in `KontrollAblauf.tsx`
-- [ ] T022 [US1] Server Action `kontrolleEinreichen` in `src/app/fahrer/kontrolle/actions.ts`: ruft `kontrolle_einreichen`, gibt `{ok, kontrolleId}` oder `{ok:false, fehler, feld}` zurück (Vertrag in contracts)
-- [ ] T023 [US1] Bestätigungsansicht nach dem Einreichen und Liste der eigenen letzten Kontrollen in `src/app/fahrer/page.tsx`
+- [x] T017 [P] [US1] Komponente `src/components/JaNein.tsx`: zwei Knöpfe ≥ 44 px, Mangel-Antwort rot umrandet, Tastatur-bedienbar
+- [x] T018 [P] [US1] Komponente `src/components/Unterschrift.tsx`: Canvas für Finger und Maus, „Löschen“, liefert PNG-Blob
+- [x] T019 [US1] Seite `src/app/fahrer/kontrolle/page.tsx` (Server): eigene Firma(en) und Fahrer-Datensatz laden, Fahrzeuge (`ist_anhaenger = false`) und Anhänger, Prüfpunkte der Fahrzeugart (Fallback „Standard“), Datum der letzten Reifenfotos je Fahrzeug; Hinweis ohne Firma oder Fahrzeug (Edge Case)
+- [x] T020 [US1] Client-Ablauf `src/app/fahrer/kontrolle/KontrollAblauf.tsx`: Schritt 1 Fahrzeug/Anhänger, Schritt 2 Prüfpunkte je Abschnitt mit `istSichtbar`, HU/SP/Tacho nur anzeigen (abgelaufen rot, `Frist` aus `src/components/ui.tsx`), Schritt 3 Unterschrift; Prüfung mit `pruefeEntwurf` markiert fehlende Punkte
+- [x] T021 [US1] Upload der Unterschrift nach `{firma_id}/{kontrolle_id}/unterschrift.png` mit dem Browser-Client in `KontrollAblauf.tsx`
+- [x] T022 [US1] Server Action `kontrolleEinreichen` in `src/app/fahrer/kontrolle/actions.ts`: ruft `kontrolle_einreichen`, gibt `{ok, kontrolleId}` oder `{ok:false, fehler, feld}` zurück (Vertrag in contracts)
+- [x] T023 [US1] Bestätigungsansicht nach dem Einreichen und Liste der eigenen letzten Kontrollen in `src/app/fahrer/page.tsx`
 
 **Checkpoint**: MVP – Fahrer können kontrollieren, Verkehrsleiter sieht Kontrollen in der Datenbank
 
@@ -78,11 +78,11 @@ description: "Aufgabenliste für die Umsetzung der Abfahrtskontrolle"
 
 **Independent Test**: quickstart Szenario 3
 
-- [ ] T024 [P] [US2] Foto verkleinern in `src/lib/kontrolle/bild.ts` (Canvas, lange Kante max. 1600 px, JPEG 0,8)
-- [ ] T025 [P] [US2] Komponente `src/components/FotoAufnahme.tsx`: `<input type="file" accept="image/*" capture="environment">`, Vorschau, mehrere Fotos für monatliche Reifenfotos, Upload nach `{firma_id}/{kontrolle_id}/antwort-<n>-<m>.jpg`
-- [ ] T026 [US2] In `KontrollAblauf.tsx`: bei Mangel-Antwort Pflicht-Foto und Pflicht-Beschreibung einblenden; freiwilliges Foto/Bemerkung bei jedem Punkt (FR-005); Hinweis „Fahrt erst nach Rücksprache mit Disposition oder Verkehrsleiter antreten“ nach Einreichen mit Mangel
-- [ ] T027 [P] [US2] Mailversand `src/lib/mail.ts` mit `nodemailer` (SMTP-Variablen aus T003) und Vorlage „Mangel“ laut contracts (Betreff `Mangel: {Kennzeichen} – {Prüfpunkt}`, signierter Foto-Link 7 Tage, Link „Mangel öffnen“)
-- [ ] T028 [US2] In `src/app/fahrer/kontrolle/actions.ts` nach erfolgreichem Einreichen Mails an `verkehrsleiter_emails` senden und `maengel.gemailt_am` setzen; Mailfehler brechen das Einreichen nicht ab
+- [x] T024 [P] [US2] Foto verkleinern in `src/lib/kontrolle/bild.ts` (Canvas, lange Kante max. 1600 px, JPEG 0,8)
+- [x] T025 [P] [US2] Komponente `src/components/FotoAufnahme.tsx`: `<input type="file" accept="image/*" capture="environment">`, Vorschau, mehrere Fotos für monatliche Reifenfotos, Upload nach `{firma_id}/{kontrolle_id}/antwort-<n>-<m>.jpg`
+- [x] T026 [US2] In `KontrollAblauf.tsx`: bei Mangel-Antwort Pflicht-Foto und Pflicht-Beschreibung einblenden; freiwilliges Foto/Bemerkung bei jedem Punkt (FR-005); Hinweis „Fahrt erst nach Rücksprache mit Disposition oder Verkehrsleiter antreten“ nach Einreichen mit Mangel
+- [x] T027 [P] [US2] Mailversand `src/lib/mail.ts` mit `nodemailer` (SMTP-Variablen aus T003) und Vorlage „Mangel“ laut contracts (Betreff `Mangel: {Kennzeichen} – {Prüfpunkt}`, signierter Foto-Link 7 Tage, Link „Mangel öffnen“)
+- [x] T028 [US2] In `src/app/fahrer/kontrolle/actions.ts` nach erfolgreichem Einreichen Mails an `verkehrsleiter_emails` senden und `maengel.gemailt_am` setzen; Mailfehler brechen das Einreichen nicht ab
 
 **Checkpoint**: Mängel kommen beim Verkehrsleiter per Mail an
 
