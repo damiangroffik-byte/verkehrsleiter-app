@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   title: "Verkehrsleiter",
   description: "Abfahrtskontrolle, Führerscheinkontrolle und Unterweisungen",
   appleWebApp: { capable: true, title: "Verkehrsleiter", statusBarStyle: "default" },
+  // iPhone nimmt für „Zum Home-Bildschirm“ nur das apple-touch-icon, nicht das Manifest.
+  icons: { apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {
