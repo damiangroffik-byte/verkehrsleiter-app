@@ -13,7 +13,7 @@ export default async function LoginSeite({ searchParams }: PageProps<"/login">) 
         {fehler === "link" && (
           <p className="mb-4 text-sm text-mangel">
             Der Anmeldelink ist abgelaufen oder wurde schon benutzt. Bitte fordere
-            eine neue E-Mail an, im selben Browser.
+            eine neue E-Mail an.
           </p>
         )}
         <LoginFormular />
