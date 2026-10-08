@@ -8,6 +8,14 @@
 
 **Input**: Damians Konzept und seine bisherige Vorlage (Connecteam-PDF, Arbeitsanweisung KG-BKF 01): Fahrer führen vor jeder Fahrt eine Abfahrtskontrolle auf dem Handy durch. Meldet ein Fahrer einen Mangel, muss er ein Foto und eine Beschreibung abgeben; der Verkehrsleiter bekommt sofort eine E-Mail und eine Aufgabe auf seiner Startseite. Am Ende unterschreibt der Fahrer digital. Die Prüfpunkte sind je Fahrzeugart einstellbar (z. B. zusätzliche Punkte für Tankzüge).
 
+## Clarifications
+
+### Session 2026-10-08
+
+- Q: An welchen Tagen gilt eine fehlende Kontrolle als fehlend? → A: Stellt der Verkehrsleiter je Firma unter „Einstellungen“ ein (Wochentage und Uhrzeit, z. B. täglich 9:00 Uhr); fehlt die Kontrolle eines Fahrers bis dahin, gibt es eine Meldung.
+- Q: Wie lange werden Kontrollen aufbewahrt? → A: 1 Jahr.
+- Q: Darf der Unternehmer Checklisten ändern? → A: Nein, nur der Verkehrsleiter.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Fahrer führt die tägliche Abfahrtskontrolle durch (Priority: P1)
@@ -76,9 +84,9 @@ Datum und Name im Verlauf des Fahrzeugs sichtbar.
 
 ---
 
-### User Story 4 - Unternehmer passt Prüfpunkte je Fahrzeugart an (Priority: P2)
+### User Story 4 - Verkehrsleiter passt Prüfpunkte je Fahrzeugart an (Priority: P2)
 
-Der Unternehmer (oder Verkehrsleiter) legt Fahrzeugarten an, z. B.
+Der Verkehrsleiter legt Fahrzeugarten an, z. B.
 „Planensattel“ und „Tankzug“, und bestimmt deren Prüfpunkte. Für den Tankzug
 ergänzt er Domdeckel, Ventile, Schläuche und Erdungskabel.
 
@@ -92,7 +100,7 @@ nächsten Kontrolle, ein Fahrer mit anderem Fahrzeug nicht.
 **Acceptance Scenarios**:
 
 1. **Given** eine neue Firma, **When** sie angelegt wird, **Then** bekommt sie eine Standard-Checkliste nach Damians Vorlage (siehe Anhang A).
-2. **Given** der Verwalter bearbeitet eine Fahrzeugart, **When** er einen Prüfpunkt hinzufügt, festlegt welche Antwort ein Mangel ist und speichert, **Then** gilt der Punkt für alle künftigen Kontrollen von Fahrzeugen dieser Art.
+2. **Given** der Verkehrsleiter bearbeitet eine Fahrzeugart, **When** er einen Prüfpunkt hinzufügt, festlegt welche Antwort ein Mangel ist und speichert, **Then** gilt der Punkt für alle künftigen Kontrollen von Fahrzeugen dieser Art.
 3. **Given** eine Checkliste wird geändert, **Then** bleiben bereits eingereichte Kontrollen unverändert und zeigen weiterhin die Fragen, die damals gestellt wurden.
 
 ---
@@ -121,7 +129,7 @@ allen Kontrollen inklusive Antworten, Mängeln, Fotos und Unterschriften.
 - Fahrzeug ist abgelaufen (HU/SP/Tacho): Der Fahrer sieht eine rote Warnung; der Verkehrsleiter bekommt eine Aufgabe, falls noch keine offen ist.
 - Foto ist sehr groß: Es wird vor dem Hochladen verkleinert, ohne dass Details eines Mangels unlesbar werden.
 - Fahrer gehört zu keiner Firma oder hat kein Fahrzeug: Er sieht einen Hinweis, sich an den Verkehrsleiter zu wenden.
-- Fahrer hat an einem Arbeitstag keine Kontrolle eingereicht: siehe FR-018.
+- Fahrer hat an einem fälligen Tag bis zur eingestellten Uhrzeit keine Kontrolle eingereicht: siehe FR-018 und FR-018a.
 
 ## Requirements *(mandatory)*
 
@@ -150,15 +158,16 @@ allen Kontrollen inklusive Antworten, Mängeln, Fotos und Unterschriften.
 
 **Checklisten (Verwalter)**
 
-- **FR-016**: Verwalter MÜSSEN Fahrzeugarten anlegen und jedem Fahrzeug eine Art zuweisen können.
-- **FR-017**: Verwalter MÜSSEN je Fahrzeugart Prüfpunkte hinzufügen, umbenennen, ausblenden und sortieren sowie die Mangel-Antwort festlegen können. Neue Firmen erhalten die Standardvorlage aus Anhang A.
+- **FR-016**: Verkehrsleiter MÜSSEN Fahrzeugarten anlegen und jedem Fahrzeug eine Art zuweisen können.
+- **FR-017**: Verkehrsleiter MÜSSEN je Fahrzeugart Prüfpunkte hinzufügen, umbenennen, ausblenden und sortieren sowie die Mangel-Antwort festlegen können. Neue Firmen erhalten die Standardvorlage aus Anhang A.
 
 **Übersicht und Nachweis**
 
-- **FR-018**: Die Startseite des Verwalters MUSS zeigen, für welche aktiven Fahrzeuge am Vortag keine Abfahrtskontrolle eingereicht wurde. [NEEDS CLARIFICATION: Gilt das an jedem Werktag (Mo–Fr), Mo–Sa, oder nur an Tagen, an denen das Fahrzeug tatsächlich gefahren ist (später über Tacho-Daten)?]
+- **FR-018**: Der Verkehrsleiter MUSS je Firma unter „Einstellungen“ festlegen können, an welchen Wochentagen und bis zu welcher Uhrzeit eine Abfahrtskontrolle fällig ist (Standard: Mo–Fr, 9:00 Uhr).
+- **FR-018a**: Hat ein aktiver Fahrer an einem solchen Tag bis zur eingestellten Uhrzeit keine Abfahrtskontrolle eingereicht, MUSS das System das als „Kontrolle fehlt“ auf der Startseite der Verwalter anzeigen und eine E-Mail an die Verkehrsleiter der Firma senden. Eine spätere Kontrolle desselben Tages erledigt den Eintrag automatisch.
 - **FR-019**: Verwalter MÜSSEN alle Kontrollen nach Firma, Fahrzeug, Fahrer und Zeitraum filtern und als PDF exportieren können.
 - **FR-020**: Fahrer MÜSSEN nur ihre eigenen Kontrollen sehen; Verwalter nur die ihrer Firmen.
-- **FR-021**: Kontrollen und Fotos MÜSSEN aufbewahrt werden für [NEEDS CLARIFICATION: Wie lange? Vorschlag: 2 Jahre, danach automatisch löschen. Oder länger wegen möglicher Haftungsfälle?]
+- **FR-021**: Kontrollen und Fotos MÜSSEN 1 Jahr ab Einreichung aufbewahrt und danach automatisch gelöscht werden. Kontrollen mit noch offenem Mangel werden erst gelöscht, wenn der Mangel geschlossen ist und das Jahr abgelaufen ist.
 
 ### Key Entities
 
@@ -185,7 +194,8 @@ allen Kontrollen inklusive Antworten, Mängeln, Fotos und Unterschriften.
 - E-Mails werden über einen Versanddienst mit Server in der EU verschickt.
 - Push-Benachrichtigungen aufs Handy sind nicht Teil dieser Funktion (später möglich).
 - Die Standardvorlage folgt Damians Connecteam-Vorlage, angepasst um die vereinbarten Dokumente.
-- Verkehrsleiter und Unternehmer gelten beide als „Verwalter“ und dürfen Mängel schließen und Checklisten ändern. [NEEDS CLARIFICATION: Soll der Unternehmer auch Checklisten ändern dürfen, oder nur der Verkehrsleiter?]
+- Verkehrsleiter und Unternehmer gelten beide als „Verwalter“: beide sehen alle Kontrollen und Mängel ihrer Firma und dürfen Mängel schließen. Checklisten, Fahrzeugarten und die Einstellungen zur fälligen Kontrolle ändert nur der Verkehrsleiter.
+- Fahrer im Urlaub oder krank setzt der Verwalter vorübergehend auf „inaktiv“, damit keine „Kontrolle fehlt“-Meldung entsteht. Eine eigene Urlaubsplanung ist nicht Teil dieser Funktion.
 
 ## Anhang A: Standard-Checkliste
 
