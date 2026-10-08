@@ -30,7 +30,8 @@ export function LoginFormular() {
         <label className="flex flex-col gap-1 text-sm">
           <span>
             Wir haben eine E-Mail an {zustand.email} geschickt. Tippe dort auf
-            den Link oder gib hier den Code aus der Mail ein.
+            „Sign in“, auf diesem Gerät. Enthält die Mail einen Code, gib ihn
+            hier ein.
           </span>
           <input
             name="code"
@@ -47,7 +48,7 @@ export function LoginFormular() {
         disabled={pending}
         className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau"
       >
-        {zustand.schritt === "email" ? "Code anfordern" : "Anmelden"}
+        {zustand.schritt === "email" ? "Anmeldelink anfordern" : "Anmelden"}
       </button>
     </form>
   );
