@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Markenfarben Kraftverkehr Groffik: Blau Pantone 2756 C, Gelb Pantone 1225 C */
+@theme {
+  --color-marke-blau: #0f227b;
+  --color-marke-blau-dunkel: #0b1440;
+  --color-marke-gelb: #ffc947;
+  --color-grund: #f4f5f2;
+  --color-ok: #2e6b3f;
+  --color-warnung: #8a3f06;
+  --color-mangel: #b42318;
+  --font-sans: var(--font-text);
+  --font-titel: var(--font-titel);
+}
+
+body {
+  background: var(--color-grund);
+  color: var(--color-marke-blau-dunkel);
+}
