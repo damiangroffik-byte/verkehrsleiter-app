@@ -28,7 +28,10 @@ export function LoginFormular() {
         </label>
       ) : (
         <label className="flex flex-col gap-1 text-sm">
-          Code aus der E-Mail an {zustand.email}
+          <span>
+            Wir haben eine E-Mail an {zustand.email} geschickt. Tippe dort auf
+            den Link oder gib hier den Code aus der Mail ein.
+          </span>
           <input
             name="code"
             inputMode="numeric"

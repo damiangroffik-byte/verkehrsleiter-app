@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,7 +22,11 @@ export async function sendeCode(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  const origin = (await headers()).get("origin");
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: origin ? `${origin}/auth/callback` : undefined },
+  });
   if (error) {
     return { schritt: "email", email, fehler: "Der Code konnte nicht gesendet werden. Bitte später erneut versuchen." };
   }
