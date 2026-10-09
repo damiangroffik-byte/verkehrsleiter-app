@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Kopfleiste } from "@/components/Kopfleiste";
+import { PdfKnopf } from "@/components/PdfKnopf";
 import { Karte } from "@/components/ui";
 import { StatusZeile } from "@/components/StatusZeile";
 import { holeNutzer, jetzt } from "@/lib/daten";
@@ -76,9 +77,9 @@ export default async function FahrerStart() {
                     <span className={`text-sm font-semibold ${k.hat_mangel ? "text-mangel" : "text-ok"}`}>
                       {k.hat_mangel ? "Mangel gemeldet" : "Ohne Mangel"}
                     </span>
-                    <a href={`/kontrolle/${k.id}/pdf`} target="_blank" className="flex min-h-11 items-center text-sm font-semibold text-marke-blau underline">
+                    <PdfKnopf href={`/kontrolle/${k.id}/pdf`} className="flex min-h-11 items-center text-sm font-semibold text-marke-blau underline">
                       PDF
-                    </a>
+                    </PdfKnopf>
                   </span>
                 </li>
               ))}

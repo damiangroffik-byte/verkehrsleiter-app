@@ -83,10 +83,9 @@ export default async function FuehrerscheinPruefen({ params, searchParams }: Pag
           {fotos.map(({ titel, url }) => (
             <Karte key={titel} titel={titel}>
               {url ? (
-                <a href={url} target="_blank" rel="noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Führerschein ${titel}`} className="w-full rounded-lg" />
-                </a>
+                // Kein Link: In der installierten App gäbe es aus dem Bild keinen Weg zurück.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt={`Führerschein ${titel}`} className="w-full rounded-lg" />
               ) : (
                 <p className="text-gray-600">Foto nicht verfügbar.</p>
               )}
