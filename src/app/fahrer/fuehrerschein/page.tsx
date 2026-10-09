@@ -78,7 +78,16 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
           </p>
         )}
       </Karte>
-      <FuehrerscheinFormular key={aktuell.firma_id} firmaId={aktuell.firma_id} wartet={status.stufe === "wartet"} />
+      <FuehrerscheinFormular
+        key={aktuell.firma_id}
+        firmaId={aktuell.firma_id}
+        wartet={status.stufe === "wartet"}
+        vorlage={
+          letzte
+            ? { klassen: (letzte as Pruefung & { klassen: string[] }).klassen, gueltigBis: letzte.gueltig_bis, code95Bis: letzte.code95_bis }
+            : null
+        }
+      />
     </Rahmen>
   );
 }

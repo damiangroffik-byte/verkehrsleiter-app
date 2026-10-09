@@ -6,13 +6,16 @@ import { Karte } from "@/components/ui";
 import { KLASSEN } from "@/lib/fuehrerschein/regeln";
 import { fuehrerscheinAuslesen, fuehrerscheinEinreichen } from "./actions";
 
-export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wartet: boolean }) {
+export type Vorlage = { klassen: string[]; gueltigBis: string; code95Bis: string | null };
+
+export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: string; wartet: boolean; vorlage: Vorlage | null }) {
   const [pruefungId] = useState(() => crypto.randomUUID());
   const [vorne, setVorne] = useState<string[]>([]);
   const [hinten, setHinten] = useState<string[]>([]);
-  const [klassen, setKlassen] = useState<string[]>([]);
-  const [gueltigBis, setGueltigBis] = useState("");
-  const [code95Bis, setCode95Bis] = useState("");
+  // Klassen und Fristen ändern sich selten: Werte der letzten Prüfung vorausfüllen.
+  const [klassen, setKlassen] = useState<string[]>(vorlage?.klassen ?? []);
+  const [gueltigBis, setGueltigBis] = useState(vorlage?.gueltigBis ?? "");
+  const [code95Bis, setCode95Bis] = useState(vorlage?.code95Bis ?? "");
   const [fehler, setFehler] = useState<string | null>(null);
   const [sendet, setSendet] = useState(false);
   const [fertig, setFertig] = useState(false);
@@ -140,6 +143,11 @@ export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wa
         />
       </div>
 
+      {vorlage && (
+        <p className="rounded-xl bg-grund p-3 text-sm">
+          Klassen und Daten sind von deiner letzten Prüfung übernommen. Ändere sie nur, wenn sich etwas geändert hat.
+        </p>
+      )}
       {liest && <p className="rounded-xl bg-grund p-3 text-sm font-semibold">Ich lese deinen Führerschein …</p>}
       {gelesen && !liest && (
         <p className="rounded-xl bg-marke-gelb/30 p-3 text-sm font-semibold">
