@@ -8,6 +8,13 @@ import { datumDe, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein
 import { fahrerAnlegen, fahrzeugAnlegen } from "../actions";
 
 type Fahrer = { id: string; vorname: string; nachname: string; email: string | null; user_id: string | null };
+type Kontrolle = {
+  id: string;
+  durchgefuehrt_am: string;
+  hat_mangel: boolean;
+  fahrer: { vorname: string; nachname: string } | null;
+  fahrzeug: { kennzeichen: string } | null;
+};
 type FsPruefung = Pruefung & { id: string; fahrer_id: string };
 type Fahrzeug = {
   id: string;
@@ -26,7 +33,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
   if (!firma) notFound();
   const heute = jetzt();
 
-  const [{ data: fahrer }, { data: fahrzeuge }, { data: pruefungen }, { data: einstellung }] = await Promise.all([
+  const [{ data: fahrer }, { data: fahrzeuge }, { data: pruefungen }, { data: einstellung }, { data: kontrollen }] = await Promise.all([
     supabase.from("fahrer").select("id, vorname, nachname, email, user_id").eq("firma_id", firmaId).order("nachname").returns<Fahrer[]>(),
     supabase
       .from("fahrzeuge")
@@ -41,6 +48,13 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
       .order("eingereicht_am", { ascending: false })
       .returns<FsPruefung[]>(),
     supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate").eq("firma_id", firmaId).maybeSingle(),
+    supabase
+      .from("kontrollen")
+      .select("id, durchgefuehrt_am, hat_mangel, fahrer(vorname, nachname), fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
+      .eq("firma_id", firmaId)
+      .order("durchgefuehrt_am", { ascending: false })
+      .limit(20)
+      .returns<Kontrolle[]>(),
   ]);
   const intervall = einstellung?.fuehrerschein_intervall_monate ?? 6;
   const fsListe = (fahrer ?? []).map((f) => {
@@ -80,6 +94,35 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
               <Knopf>Fahrer hinzufügen</Knopf>
             </div>
           </form>
+        </Karte>
+
+        <Karte titel="Letzte Abfahrtskontrollen">
+          {kontrollen && kontrollen.length > 0 ? (
+            <ul className="divide-y divide-gray-200">
+              {kontrollen.map((k) => (
+                <li key={k.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="flex flex-col">
+                    <span className="font-semibold">
+                      {k.fahrzeug?.kennzeichen} · {k.fahrer ? `${k.fahrer.vorname} ${k.fahrer.nachname}` : ""}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {new Date(k.durchgefuehrt_am).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })} Uhr ·{" "}
+                      <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>{k.hat_mangel ? "Mangel" : "ohne Mangel"}</span>
+                    </span>
+                  </span>
+                  <a
+                    href={`/kontrolle/${k.id}/pdf`}
+                    target="_blank"
+                    className="flex h-11 items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau"
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-600">Noch keine Kontrolle eingereicht.</p>
+          )}
         </Karte>
 
         <Karte titel="Führerscheinkontrolle">
