@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Kopfleiste } from "@/components/Kopfleiste";
+import { PdfKnopf } from "@/components/PdfKnopf";
 import { StatusZeile } from "@/components/StatusZeile";
 import { Feld, Frist, Haken, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
@@ -110,13 +111,9 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
                       <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>{k.hat_mangel ? "Mangel" : "ohne Mangel"}</span>
                     </span>
                   </span>
-                  <a
-                    href={`/kontrolle/${k.id}/pdf`}
-                    target="_blank"
-                    className="flex h-11 items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau"
-                  >
+                  <PdfKnopf href={`/kontrolle/${k.id}/pdf`} className="flex h-11 items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau">
                     PDF
-                  </a>
+                  </PdfKnopf>
                 </li>
               ))}
             </ul>
