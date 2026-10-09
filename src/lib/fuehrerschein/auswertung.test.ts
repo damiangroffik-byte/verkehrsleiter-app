@@ -36,6 +36,11 @@ describe("auswerten", () => {
     expect(r).toEqual({ klassen: ["C", "CE"], gueltigBis: "2027-07-01", code95Bis: "2027-07-01" });
   });
 
+  it("übergeht Zeichensalat aus den Bildsymbolen vor der Klasse", () => {
+    const r = auswerten("", "Ar & C1E 01.06.18 31.05.28\nEB| ClE 01.06.18 31.05.28\n=a CE 01.06.18 31.05.28\nAB B 01.06.05");
+    expect(r).toEqual({ klassen: ["C1E", "CE", "B"], gueltigBis: "2028-05-31", code95Bis: null });
+  });
+
   it("liefert leere Werte bei unlesbarem Text", () => {
     expect(auswerten("xx", "Hologramm ~~~")).toEqual({ klassen: [], gueltigBis: null, code95Bis: null });
   });

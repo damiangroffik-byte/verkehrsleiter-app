@@ -24,7 +24,8 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
   const [offen, setOffen] = useState(!wartet);
 
   const [liest, setLiest] = useState(false);
-  const [gelesen, setGelesen] = useState(false);
+  // Ergebnis des automatischen Lesens, damit der Fahrer sieht, was passiert ist.
+  const [lesen, setLesen] = useState<{ art: "gelesen" | "leer" | "fehler"; text?: string } | null>(null);
 
   const ordner = `${firmaId}/${pruefungId}`;
 
@@ -40,7 +41,7 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
     if (!v[0] || !h[0] || !dv || !dh) return;
     const nr = ++lauf.current;
     setLiest(true);
-    setGelesen(false);
+    setLesen(null);
     try {
       const ki = await fuehrerscheinAuslesen(firmaId, v[0], h[0]).catch(() => ({ ok: false as const }));
       const werte: Erkannt = ki.ok ? ki.werte : await fotosLesen(dv, dh);
@@ -49,9 +50,11 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
       if (k.length > 0) setKlassen(k);
       if (g) setGueltigBis(g);
       if (c) setCode95Bis(c);
-      setGelesen(k.length > 0 || Boolean(g) || Boolean(c));
-    } catch {
+      setLesen({ art: k.length > 0 || g || c ? "gelesen" : "leer" });
+    } catch (e) {
       // Ohne Erkennung füllt der Fahrer selbst aus.
+      console.error("Texterkennung fehlgeschlagen", e);
+      if (nr === lauf.current) setLesen({ art: "fehler", text: e instanceof Error ? e.message : String(e) });
     } finally {
       if (nr === lauf.current) setLiest(false);
     }
@@ -162,9 +165,20 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
         </p>
       )}
       {liest && <p className="rounded-xl bg-grund p-3 text-sm font-semibold">Ich lese deinen Führerschein … das dauert ein paar Sekunden.</p>}
-      {gelesen && !liest && (
+      {lesen?.art === "gelesen" && !liest && (
         <p className="rounded-xl bg-marke-gelb/30 p-3 text-sm font-semibold">
           Klassen und Daten wurden aus den Fotos gelesen. Bitte vergleiche sie kurz mit deinem Führerschein und korrigiere, wenn etwas nicht stimmt.
+        </p>
+      )}
+      {lesen?.art === "leer" && !liest && (
+        <p className="rounded-xl bg-grund p-3 text-sm">
+          Auf den Fotos konnte ich keine Klassen und Daten erkennen. Fotografiere die Rückseite am besten noch einmal gerade, nah und ohne Spiegelung, oder trage die Werte selbst ein.
+        </p>
+      )}
+      {lesen?.art === "fehler" && !liest && (
+        <p className="rounded-xl bg-grund p-3 text-sm">
+          Das automatische Lesen hat auf diesem Handy nicht geklappt. Bitte trage die Werte selbst ein.
+          <span className="mt-1 block text-xs text-gray-600">Fehler: {lesen.text}</span>
         </p>
       )}
 

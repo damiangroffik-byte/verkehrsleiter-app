@@ -7,10 +7,12 @@ import type { Erkannt } from "./erkennung";
 
 export async function fotosLesen(vorne: File, hinten: File): Promise<Erkannt> {
   const { createWorker, OEM } = await import("tesseract.js");
+  // Volle Adressen: der Worker läuft aus einer blob:-Adresse, dort lassen sich "/…"-Pfade nicht überall auflösen.
+  const ordner = new URL("/tesseract", location.origin).href;
   const worker = await createWorker("deu", OEM.LSTM_ONLY, {
-    workerPath: "/tesseract/worker.min.js",
-    corePath: "/tesseract",
-    langPath: "/tesseract",
+    workerPath: `${ordner}/worker.min.js`,
+    corePath: ordner,
+    langPath: ordner,
   });
   try {
     // Etwas größer als fürs Hochladen, damit die kleine Schrift der Rückseite lesbar bleibt.
