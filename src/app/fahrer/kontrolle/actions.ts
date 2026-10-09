@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { after } from "next/server";
-import { mailBereit, mangelMail, sendeMail } from "@/lib/mail";
+import { kontrolleBericht } from "@/lib/kontrolle/bericht";
+import { mailBereit, mangelMail, sendeMail, type Anhang } from "@/lib/mail";
 import { createClient } from "@/lib/supabase/server";
 import type { EinreichenErgebnis, KontrollEntwurf } from "./typen";
 
@@ -36,6 +37,14 @@ export async function kontrolleEinreichen(entwurf: KontrollEntwurf): Promise<Ein
   if (ergebnis.maengel.length > 0 && ergebnis.verkehrsleiter_emails.length > 0 && mailBereit()) {
     after(async () => {
       const gesendet: string[] = [];
+      // Bericht einmal erzeugen und an jede Mangel-Mail hängen; ohne PDF geht die Mail trotzdem raus.
+      const anhaenge: Anhang[] = [];
+      try {
+        const bericht = await kontrolleBericht(supabase, ergebnis.kontrolle_id);
+        if (bericht) anhaenge.push({ filename: bericht.dateiname, content: Buffer.from(bericht.pdf), contentType: "application/pdf" });
+      } catch (e) {
+        console.error("PDF-Bericht fehlgeschlagen", ergebnis.kontrolle_id, e);
+      }
       for (const m of ergebnis.maengel) {
         try {
           const foto = m.foto_pfad
@@ -50,7 +59,7 @@ export async function kontrolleEinreichen(entwurf: KontrollEntwurf): Promise<Ein
             fotoLink: foto,
             mangelLink: `${basis}/verwaltung/${entwurf.firmaId}`,
           });
-          await sendeMail(ergebnis.verkehrsleiter_emails, betreff, text);
+          await sendeMail(ergebnis.verkehrsleiter_emails, betreff, text, anhaenge);
           gesendet.push(m.id);
         } catch (e) {
           console.error("Mangel-Mail fehlgeschlagen", m.id, e);

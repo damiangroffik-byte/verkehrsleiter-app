@@ -72,8 +72,13 @@ export default async function FahrerStart() {
                       Uhr
                     </span>
                   </span>
-                  <span className={`text-sm font-semibold ${k.hat_mangel ? "text-mangel" : "text-ok"}`}>
-                    {k.hat_mangel ? "Mangel gemeldet" : "Ohne Mangel"}
+                  <span className="flex flex-col items-end gap-1">
+                    <span className={`text-sm font-semibold ${k.hat_mangel ? "text-mangel" : "text-ok"}`}>
+                      {k.hat_mangel ? "Mangel gemeldet" : "Ohne Mangel"}
+                    </span>
+                    <a href={`/kontrolle/${k.id}/pdf`} target="_blank" className="flex min-h-11 items-center text-sm font-semibold text-marke-blau underline">
+                      PDF
+                    </a>
                   </span>
                 </li>
               ))}

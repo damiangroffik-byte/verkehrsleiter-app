@@ -14,7 +14,9 @@ export function mailBereit() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORT);
 }
 
-export async function sendeMail(an: string[], betreff: string, text: string) {
+export type Anhang = { filename: string; content: Buffer; contentType: string };
+
+export async function sendeMail(an: string[], betreff: string, text: string, anhaenge: Anhang[] = []) {
   const t = transport();
   if (!t) throw new Error("SMTP ist nicht eingerichtet.");
   await t.sendMail({
@@ -22,6 +24,7 @@ export async function sendeMail(an: string[], betreff: string, text: string) {
     to: an.join(", "),
     subject: betreff,
     text,
+    attachments: anhaenge,
   });
 }
 
@@ -49,6 +52,8 @@ export function mangelMail(m: MangelMail) {
     "",
     m.fotoLink ? `Foto (7 Tage gültig): ${m.fotoLink}` : "Foto: nicht verfügbar",
     `Mangel öffnen: ${m.mangelLink}`,
+    "",
+    "Der vollständige Bericht hängt als PDF an.",
   ].join("\n");
   return { betreff, text };
 }
