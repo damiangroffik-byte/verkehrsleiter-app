@@ -4,8 +4,9 @@
 
 import type { Erkannt } from "./erkennung";
 
-const KLASSE = /^(C1E|D1E|C1|D1|CE|BE|DE|A1|A2|AM|A|B|C|D|L|T)(?![A-Z0-9])/;
+const KLASSE = /(?<![A-Za-z0-9])(C1E|D1E|C1|D1|CE|BE|DE|A1|A2|AM|A|B|C|D|L|T)(?![A-Za-z0-9])/g;
 const DATUM = /(\d{2})[.,](\d{2})[.,](\d{4}|\d{2})/g;
+const DATUM_EINZELN = /\d{2}[.,]\d{2}[.,]\d{2}/;
 const CODE95 = /\b95\s*[.(]?\s*(\d{2})[.,](\d{2})[.,](\d{4}|\d{2})/;
 const FELD_4B = /4\s*b\s*[.:]?\s*(\d{2})[.,](\d{2})[.,](\d{4}|\d{2})/i;
 const C_KLASSEN = new Set(["C1", "C1E", "C", "CE"]);
@@ -18,9 +19,10 @@ function iso(t: string, m: string, j: string) {
   return `${jahr}-${m}-${t}`;
 }
 
-// Typische Lesefehler in Zahlen: O statt 0, I/l statt 1.
+// Typische Lesefehler in Zahlen: O statt 0, I/l statt 1 (auch in C1, C1E, D1, D1E, A1).
 function glaetten(text: string) {
-  return text.replace(/(?<=\d)[Oo](?=[\d.,])|(?<=[.,])[Oo](?=\d)/g, "0").replace(/(?<=\d)[Il|](?=[\d.,])|(?<=[.,])[Il|](?=\d)/g, "1");
+  return text
+    .replace(/(?<![A-Za-z0-9])([ACD])[Il|](E?)(?![A-Za-z0-9])/g, "$11$2").replace(/(?<=\d)[Oo](?=[\d.,])|(?<=[.,])[Oo](?=\d)/g, "0").replace(/(?<=\d)[Il|](?=[\d.,])|(?<=[.,])[Il|](?=\d)/g, "1");
 }
 
 export function auswerten(textVorne: string, textHinten: string): Erkannt {
@@ -32,13 +34,17 @@ export function auswerten(textVorne: string, textHinten: string): Erkannt {
   const code95Bis = c95 ? iso(c95[1], c95[2], c95[3]) : null;
 
   for (const roh of hinten.split("\n")) {
-    const zeile = roh.replace(/^[^A-Z0-9]+/, "").replace(CODE95, " ");
-    const k = zeile.match(KLASSE);
+    const zeile = roh.replace(CODE95, " ");
+    const erstesDatum = zeile.search(DATUM_EINZELN);
+    if (erstesDatum < 0) continue; // Klasse ohne Erteilungsdatum: nicht vorhanden
+    // Vor der Klasse steht auf der Karte ein Bildsymbol, das als Zeichensalat gelesen wird:
+    // maßgeblich ist die letzte Klassenbezeichnung vor dem ersten Datum.
+    const k = [...zeile.slice(0, erstesDatum).matchAll(KLASSE)].at(-1)?.[1];
     if (!k) continue;
     const daten = [...zeile.matchAll(DATUM)].map((d) => iso(d[1], d[2], d[3])).filter((d): d is string => d !== null);
-    if (daten.length === 0) continue; // Klasse ohne Erteilungsdatum: nicht vorhanden
-    if (!klassen.includes(k[1])) klassen.push(k[1]);
-    if (daten[1] && C_KLASSEN.has(k[1])) ablauf.push(daten[1]);
+    if (daten.length === 0) continue;
+    if (!klassen.includes(k)) klassen.push(k);
+    if (daten[1] && C_KLASSEN.has(k)) ablauf.push(daten[1]);
   }
 
   const f4b = glaetten(textVorne).match(FELD_4B);
