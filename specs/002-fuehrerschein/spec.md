@@ -48,8 +48,15 @@ Ablauf Klasse C/CE und Code 95. Fällige oder bald fällige Einträge sind farbi
 
 - Erinnerungs-Mails (Prüfung fällig, Ablauf in 1 Monat) per pg_cron.
 - Prüfabstand in den Firmen-Einstellungen ändern (Spalte ist vorhanden).
-- Texterkennung (OCR) der Fotos.
 - Löschfristen nach Austritt des Fahrers.
+
+### US4 – Klassen und Fristen automatisch lesen (P2, gebaut 2026-10-09)
+
+Sobald beide Fotos da sind, liest Claude (Anthropic) Klassen, „gültig bis“ und
+Code 95 von den Bildern und füllt leere Felder vor. Der Fahrer prüft und kann
+korrigieren. Ohne `ANTHROPIC_API_KEY` in Vercel bleibt alles manuell.
+Datenschutz: Die Fotos gehen dafür an Anthropic; das gehört in die
+Datenschutzinfo für Fahrer.
 
 ## Regeln
 

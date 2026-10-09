@@ -10,3 +10,4 @@
 - [x] T008 [US3] Übersicht auf `src/app/verwaltung/[firmaId]/page.tsx`
 - [x] T009 [US2] Mail an Verkehrsleiter bei Einreichung (`src/lib/mail.ts`)
 - [ ] T010 Erinnerungs-Mails per pg_cron (nächster Sprint)
+- [x] T011 [US4] KI-Erkennung `src/lib/fuehrerschein/erkennung.ts`, Vorbefüllen im Formular
