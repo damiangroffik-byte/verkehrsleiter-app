@@ -13,6 +13,8 @@ export function FotoAufnahme({
   onChange,
   beschriftung,
   pflicht,
+  bucket = "kontrollen",
+  mehrere = true,
 }: {
   ordner: string;
   praefix: string;
@@ -20,6 +22,9 @@ export function FotoAufnahme({
   onChange: (pfade: string[]) => void;
   beschriftung: string;
   pflicht: boolean;
+  bucket?: string;
+  // Nur ein Foto: ein neues ersetzt das alte.
+  mehrere?: boolean;
 }) {
   const eingabe = useRef<HTMLInputElement>(null);
   const zaehler = useRef(0);
@@ -41,7 +46,7 @@ export function FotoAufnahme({
         zaehler.current += 1;
         const pfad = `${ordner}/${praefix}-${Date.now()}-${zaehler.current}.jpg`;
         const { error } = await supabase.storage
-          .from("kontrollen")
+          .from(bucket)
           .upload(pfad, blob, { contentType: "image/jpeg", upsert: false });
         if (error) throw error;
         neu.push(pfad);
@@ -50,7 +55,7 @@ export function FotoAufnahme({
     } catch {
       setFehler("Foto konnte nicht hochgeladen werden. Bitte prüfe die Verbindung und versuche es noch einmal.");
     } finally {
-      if (neu.length > 0) onChange([...pfade, ...neu]);
+      if (neu.length > 0) onChange(mehrere ? [...pfade, ...neu] : neu.slice(-1));
       setLaedt(false);
     }
   }
@@ -84,7 +89,7 @@ export function FotoAufnahme({
         type="file"
         accept="image/*"
         capture="environment"
-        multiple
+        multiple={mehrere}
         onChange={aufgenommen}
         className="hidden"
       />

@@ -52,3 +52,15 @@ export function mangelMail(m: MangelMail) {
   ].join("\n");
   return { betreff, text };
 }
+
+export function fuehrerscheinMail(m: { fahrer: string; pruefLink: string }) {
+  return {
+    betreff: `Führerschein zur Prüfung: ${m.fahrer}`,
+    text: [
+      `${m.fahrer} hat seinen Führerschein zur Kontrolle eingereicht.`,
+      "",
+      "Bitte prüfe die Fotos und bestätige oder lehne ab:",
+      m.pruefLink,
+    ].join("\n"),
+  };
+}
