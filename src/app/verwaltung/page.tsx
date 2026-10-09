@@ -26,6 +26,14 @@ export default async function Verwaltung() {
             Eigene Abfahrtskontrolle starten
           </Link>
         )}
+        {(alsFahrer ?? 0) > 0 && (
+          <Link
+            href="/fahrer/fuehrerschein"
+            className="flex h-12 items-center justify-center rounded-xl border-2 border-marke-blau font-semibold text-marke-blau"
+          >
+            Eigener Führerschein
+          </Link>
+        )}
         {firmen.length > 0 && (
           <Karte titel="Firmen">
             <ul className="flex flex-col gap-2">

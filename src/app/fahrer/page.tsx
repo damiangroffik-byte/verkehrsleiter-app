@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { Kopfleiste } from "@/components/Kopfleiste";
 import { Karte } from "@/components/ui";
-import { holeNutzer } from "@/lib/daten";
+import { StatusZeile } from "@/components/StatusZeile";
+import { holeNutzer, jetzt } from "@/lib/daten";
+import { einreichenNoetig, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein/regeln";
 
-type FahrerDaten = { vorname: string; firmen: { name: string } | null };
+type FahrerDaten = {
+  id: string;
+  vorname: string;
+  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number } | null } | null;
+};
 type LetzteKontrolle = {
   id: string;
   durchgefuehrt_am: string;
@@ -16,7 +22,7 @@ export default async function FahrerStart() {
   const [{ data }, { data: kontrollen }] = await Promise.all([
     supabase
       .from("fahrer")
-      .select("vorname, firmen(name)")
+      .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate))")
       .eq("user_id", user.id)
       .limit(1)
       .returns<FahrerDaten[]>(),
@@ -29,6 +35,16 @@ export default async function FahrerStart() {
       .returns<LetzteKontrolle[]>(),
   ]);
   const ich = data?.[0];
+  const { data: pruefungen } = ich
+    ? await supabase
+        .from("fuehrerschein_pruefungen")
+        .select("status, eingereicht_am, geprueft_am, gueltig_bis, code95_bis, vermerk")
+        .eq("fahrer_id", ich.id)
+        .order("eingereicht_am", { ascending: false })
+        .limit(20)
+        .returns<Pruefung[]>()
+    : { data: null };
+  const fs = fuehrerscheinStatus(pruefungen ?? [], ich?.firmen?.firma_einstellungen?.fuehrerschein_intervall_monate ?? 6, new Date(jetzt()));
 
   return (
     <main className="flex flex-1 flex-col">
@@ -66,8 +82,17 @@ export default async function FahrerStart() {
             <p className="text-gray-600">Noch keine Kontrolle eingereicht.</p>
           )}
         </Karte>
+        <Karte titel="Führerschein">
+          <StatusZeile stufe={fs.stufe} text={fs.text} />
+          <Link
+            href="/fahrer/fuehrerschein"
+            className={`flex h-12 items-center justify-center rounded-xl font-semibold ${einreichenNoetig(fs) ? "bg-marke-gelb text-marke-blau" : "border-2 border-marke-blau text-marke-blau"}`}
+          >
+            {einreichenNoetig(fs) ? "Führerschein fotografieren" : "Führerschein ansehen"}
+          </Link>
+        </Karte>
         <Karte titel="Bald verfügbar">
-          <p className="text-gray-600">Führerscheinkontrolle und Unterweisungen folgen.</p>
+          <p className="text-gray-600">Unterweisungen folgen.</p>
         </Karte>
       </div>
     </main>

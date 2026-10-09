@@ -1,0 +1,164 @@
+"use client";
+
+import { useState } from "react";
+import { FotoAufnahme } from "@/components/FotoAufnahme";
+import { Karte } from "@/components/ui";
+import { KLASSEN } from "@/lib/fuehrerschein/regeln";
+import { fuehrerscheinEinreichen } from "./actions";
+
+export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wartet: boolean }) {
+  const [pruefungId] = useState(() => crypto.randomUUID());
+  const [vorne, setVorne] = useState<string[]>([]);
+  const [hinten, setHinten] = useState<string[]>([]);
+  const [klassen, setKlassen] = useState<string[]>([]);
+  const [gueltigBis, setGueltigBis] = useState("");
+  const [code95Bis, setCode95Bis] = useState("");
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [sendet, setSendet] = useState(false);
+  const [fertig, setFertig] = useState(false);
+  const [offen, setOffen] = useState(!wartet);
+
+  const ordner = `${firmaId}/${pruefungId}`;
+
+  function umschalten(k: string) {
+    setKlassen((alt) => (alt.includes(k) ? alt.filter((x) => x !== k) : [...alt, k]));
+  }
+
+  async function absenden() {
+    const fehlt =
+      vorne.length === 0
+        ? "Bitte fotografiere die Vorderseite."
+        : hinten.length === 0
+          ? "Bitte fotografiere die Rückseite."
+          : klassen.length === 0
+            ? "Bitte wähle deine Führerscheinklassen."
+            : !gueltigBis
+              ? "Bitte trage ein, bis wann deine Fahrerlaubnis gilt."
+              : null;
+    if (fehlt) {
+      setFehler(fehlt);
+      return;
+    }
+    setSendet(true);
+    setFehler(null);
+    const erg = await fuehrerscheinEinreichen({
+      pruefungId,
+      firmaId,
+      fotoVorne: vorne[0],
+      fotoHinten: hinten[0],
+      klassen,
+      gueltigBis,
+      code95Bis,
+    });
+    setSendet(false);
+    if (erg.ok) setFertig(true);
+    else setFehler(erg.fehler);
+  }
+
+  if (fertig) {
+    return (
+      <Karte titel="Eingereicht">
+        <p>Danke! Dein Verkehrsleiter prüft jetzt die Fotos. Den Stand siehst du auf deiner Startseite.</p>
+      </Karte>
+    );
+  }
+
+  if (!offen) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOffen(true)}
+        className="h-12 rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau"
+      >
+        Neue Fotos einreichen
+      </button>
+    );
+  }
+
+  return (
+    <Karte titel="Führerschein einreichen">
+      <p className="text-sm text-gray-600">Lege den Führerschein auf einen hellen Tisch und fotografiere ihn gerade von oben, ohne Spiegelung.</p>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="font-semibold">1. Vorderseite</h3>
+        <FotoAufnahme
+          bucket="fuehrerscheine"
+          ordner={ordner}
+          praefix="vorne"
+          pfade={vorne}
+          onChange={setVorne}
+          mehrere={false}
+          pflicht
+          beschriftung={vorne.length ? "Neu fotografieren" : "Vorderseite fotografieren"}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="font-semibold">2. Rückseite</h3>
+        <FotoAufnahme
+          bucket="fuehrerscheine"
+          ordner={ordner}
+          praefix="hinten"
+          pfade={hinten}
+          onChange={setHinten}
+          mehrere={false}
+          pflicht
+          beschriftung={hinten.length ? "Neu fotografieren" : "Rückseite fotografieren"}
+        />
+      </div>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 font-semibold">3. Deine Klassen</legend>
+        <div className="grid grid-cols-4 gap-2">
+          {KLASSEN.map((k) => {
+            const an = klassen.includes(k);
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={an}
+                onClick={() => umschalten(k)}
+                className={`h-11 rounded-xl border-2 font-semibold ${an ? "border-marke-blau bg-marke-blau text-white" : "border-gray-300 bg-white"}`}
+              >
+                {k}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-semibold">4. Gültig bis</span>
+        <span className="text-sm text-gray-600">Bei C/CE: Rückseite, Spalte 11. Sonst: Vorderseite, Feld 4b.</span>
+        <input
+          type="date"
+          value={gueltigBis}
+          onChange={(e) => setGueltigBis(e.target.value)}
+          className="h-11 rounded-xl border border-gray-300 bg-white px-3 text-base"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-semibold">5. Code 95 gültig bis (falls vorhanden)</span>
+        <span className="text-sm text-gray-600">Rückseite, Spalte 12, Schlüsselzahl 95 mit Datum.</span>
+        <input
+          type="date"
+          value={code95Bis}
+          onChange={(e) => setCode95Bis(e.target.value)}
+          className="h-11 rounded-xl border border-gray-300 bg-white px-3 text-base"
+        />
+      </label>
+
+      {fehler && <p className="font-semibold text-mangel">{fehler}</p>}
+
+      <button
+        type="button"
+        onClick={absenden}
+        disabled={sendet}
+        className="h-14 rounded-xl bg-marke-gelb text-lg font-semibold text-marke-blau disabled:opacity-60"
+      >
+        {sendet ? "Wird gesendet …" : "Zur Prüfung senden"}
+      </button>
+    </Karte>
+  );
+}
