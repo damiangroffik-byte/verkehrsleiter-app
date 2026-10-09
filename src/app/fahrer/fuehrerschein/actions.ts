@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { erkennungBereit, fuehrerscheinLesen, type Erkannt } from "@/lib/fuehrerschein/erkennung";
 import { fuehrerscheinMail, mailBereit, sendeMail } from "@/lib/mail";
 import { createClient } from "@/lib/supabase/server";
 
@@ -52,4 +53,31 @@ export async function fuehrerscheinEinreichen(entwurf: FuehrerscheinEntwurf): Pr
   revalidatePath("/fahrer");
   revalidatePath("/fahrer/fuehrerschein");
   return { ok: true };
+}
+
+export type AuslesenErgebnis = { ok: true; werte: Erkannt } | { ok: false };
+
+// Vorschlag für Klassen und Fristen aus den Fotos. Ohne API-Schlüssel oder bei
+// unlesbaren Fotos kommt nichts zurück; der Fahrer füllt dann selbst aus.
+export async function fuehrerscheinAuslesen(firmaId: string, fotoVorne: string, fotoHinten: string): Promise<AuslesenErgebnis> {
+  if (!erkennungBereit()) return { ok: false };
+  if (![fotoVorne, fotoHinten].every((p) => p.startsWith(`${firmaId}/`))) return { ok: false };
+
+  const supabase = await createClient();
+  // Herunterladen klappt nur mit Leserecht (eigene Fotos oder Verwalter), siehe Storage-Regeln.
+  const [vorne, hinten] = await Promise.all(
+    [fotoVorne, fotoHinten].map(async (p) => {
+      const { data } = await supabase.storage.from("fuehrerscheine").download(p);
+      return data ? new Uint8Array(await data.arrayBuffer()) : null;
+    }),
+  );
+  if (!vorne || !hinten) return { ok: false };
+
+  try {
+    const werte = await fuehrerscheinLesen(vorne, hinten);
+    return werte ? { ok: true, werte } : { ok: false };
+  } catch (e) {
+    console.error("Führerschein-Erkennung fehlgeschlagen", e instanceof Error ? e.message : e);
+    return { ok: false };
+  }
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FotoAufnahme } from "@/components/FotoAufnahme";
 import { Karte } from "@/components/ui";
 import { KLASSEN } from "@/lib/fuehrerschein/regeln";
-import { fuehrerscheinEinreichen } from "./actions";
+import { fuehrerscheinAuslesen, fuehrerscheinEinreichen } from "./actions";
 
 export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wartet: boolean }) {
   const [pruefungId] = useState(() => crypto.randomUUID());
@@ -18,7 +18,34 @@ export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wa
   const [fertig, setFertig] = useState(false);
   const [offen, setOffen] = useState(!wartet);
 
+  const [liest, setLiest] = useState(false);
+  const [gelesen, setGelesen] = useState(false);
+
   const ordner = `${firmaId}/${pruefungId}`;
+
+  const lauf = useRef(0);
+
+  // Sobald beide Seiten fotografiert sind, liest die App Klassen und Daten vor.
+  // Schon eingetragene Werte werden nicht überschrieben.
+  async function auslesen(v: string[], h: string[]) {
+    if (!v[0] || !h[0]) return;
+    const nr = ++lauf.current;
+    setLiest(true);
+    setGelesen(false);
+    try {
+      const erg = await fuehrerscheinAuslesen(firmaId, v[0], h[0]);
+      if (nr !== lauf.current || !erg.ok) return;
+      const { klassen: k, gueltigBis: g, code95Bis: c } = erg.werte;
+      setKlassen((alt) => (alt.length === 0 ? k : alt));
+      if (g) setGueltigBis((alt) => alt || g);
+      if (c) setCode95Bis((alt) => alt || c);
+      setGelesen(k.length > 0 || Boolean(g) || Boolean(c));
+    } catch {
+      // Ohne Erkennung füllt der Fahrer selbst aus.
+    } finally {
+      if (nr === lauf.current) setLiest(false);
+    }
+  }
 
   function umschalten(k: string) {
     setKlassen((alt) => (alt.includes(k) ? alt.filter((x) => x !== k) : [...alt, k]));
@@ -86,7 +113,10 @@ export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wa
           ordner={ordner}
           praefix="vorne"
           pfade={vorne}
-          onChange={setVorne}
+          onChange={(p) => {
+            setVorne(p);
+            void auslesen(p, hinten);
+          }}
           mehrere={false}
           pflicht
           beschriftung={vorne.length ? "Neu fotografieren" : "Vorderseite fotografieren"}
@@ -100,12 +130,22 @@ export function FuehrerscheinFormular({ firmaId, wartet }: { firmaId: string; wa
           ordner={ordner}
           praefix="hinten"
           pfade={hinten}
-          onChange={setHinten}
+          onChange={(p) => {
+            setHinten(p);
+            void auslesen(vorne, p);
+          }}
           mehrere={false}
           pflicht
           beschriftung={hinten.length ? "Neu fotografieren" : "Rückseite fotografieren"}
         />
       </div>
+
+      {liest && <p className="rounded-xl bg-grund p-3 text-sm font-semibold">Ich lese deinen Führerschein …</p>}
+      {gelesen && !liest && (
+        <p className="rounded-xl bg-marke-gelb/30 p-3 text-sm font-semibold">
+          Klassen und Daten wurden aus den Fotos gelesen. Bitte prüfe sie und korrigiere, wenn etwas nicht stimmt.
+        </p>
+      )}
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 font-semibold">3. Deine Klassen</legend>
