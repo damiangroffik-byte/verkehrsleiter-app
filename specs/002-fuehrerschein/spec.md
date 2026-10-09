@@ -58,6 +58,14 @@ korrigieren. Ohne `ANTHROPIC_API_KEY` in Vercel bleibt alles manuell.
 Datenschutz: Die Fotos gehen dafür an Anthropic; das gehört in die
 Datenschutzinfo für Fahrer.
 
+### US5 – Texterkennung auf dem Handy ohne KI (P1, gebaut 2026-10-09)
+
+Damian möchte nur fotografieren. Ohne KI-Schlüssel liest tesseract.js die
+Fotos direkt im Browser; die Fotos verlassen das Handy dafür nicht, Programm und
+Sprachdaten kommen von der eigenen Vercel-Adresse. Erkannte Werte werden
+übernommen, der Fahrer vergleicht sie kurz. Echte Karten (Hologramm,
+Spiegelungen) sind schwerer zu lesen als die Testbilder.
+
 ## Regeln
 
 - Fotos liegen im privaten Bucket `fuehrerscheine`, nur Verwalter der Firma und der Fahrer selbst sehen sie.

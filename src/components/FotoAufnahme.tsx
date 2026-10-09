@@ -15,6 +15,7 @@ export function FotoAufnahme({
   pflicht,
   bucket = "kontrollen",
   mehrere = true,
+  onFoto,
 }: {
   ordner: string;
   praefix: string;
@@ -25,6 +26,8 @@ export function FotoAufnahme({
   bucket?: string;
   // Nur ein Foto: ein neues ersetzt das alte.
   mehrere?: boolean;
+  // Originaldatei nach erfolgreichem Hochladen (z. B. für die Texterkennung).
+  onFoto?: (datei: File) => void;
 }) {
   const eingabe = useRef<HTMLInputElement>(null);
   const zaehler = useRef(0);
@@ -50,6 +53,7 @@ export function FotoAufnahme({
           .upload(pfad, blob, { contentType: "image/jpeg", upsert: false });
         if (error) throw error;
         neu.push(pfad);
+        onFoto?.(datei);
         setVorschau((v) => ({ ...v, [pfad]: URL.createObjectURL(blob) }));
       }
     } catch {

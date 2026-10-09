@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import { FotoAufnahme } from "@/components/FotoAufnahme";
 import { Karte } from "@/components/ui";
+import type { Erkannt } from "@/lib/fuehrerschein/erkennung";
 import { KLASSEN } from "@/lib/fuehrerschein/regeln";
+import { fotosLesen } from "@/lib/fuehrerschein/texterkennung";
 import { fuehrerscheinAuslesen, fuehrerscheinEinreichen } from "./actions";
 
 export type Vorlage = { klassen: string[]; gueltigBis: string; code95Bis: string | null };
@@ -27,21 +29,26 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
   const ordner = `${firmaId}/${pruefungId}`;
 
   const lauf = useRef(0);
+  const dateien = useRef<{ vorne?: File; hinten?: File }>({});
 
   // Sobald beide Seiten fotografiert sind, liest die App Klassen und Daten vor.
   // Schon eingetragene Werte werden nicht überschrieben.
+  // Erst die KI (nur wenn ein Schlüssel eingerichtet ist), sonst Texterkennung auf dem Handy.
+  // Erkannte Werte ersetzen die Vorlage, leere Ergebnisse lassen alles, wie es ist.
   async function auslesen(v: string[], h: string[]) {
-    if (!v[0] || !h[0]) return;
+    const { vorne: dv, hinten: dh } = dateien.current;
+    if (!v[0] || !h[0] || !dv || !dh) return;
     const nr = ++lauf.current;
     setLiest(true);
     setGelesen(false);
     try {
-      const erg = await fuehrerscheinAuslesen(firmaId, v[0], h[0]);
-      if (nr !== lauf.current || !erg.ok) return;
-      const { klassen: k, gueltigBis: g, code95Bis: c } = erg.werte;
-      setKlassen((alt) => (alt.length === 0 ? k : alt));
-      if (g) setGueltigBis((alt) => alt || g);
-      if (c) setCode95Bis((alt) => alt || c);
+      const ki = await fuehrerscheinAuslesen(firmaId, v[0], h[0]).catch(() => ({ ok: false as const }));
+      const werte: Erkannt = ki.ok ? ki.werte : await fotosLesen(dv, dh);
+      if (nr !== lauf.current) return;
+      const { klassen: k, gueltigBis: g, code95Bis: c } = werte;
+      if (k.length > 0) setKlassen(k);
+      if (g) setGueltigBis(g);
+      if (c) setCode95Bis(c);
       setGelesen(k.length > 0 || Boolean(g) || Boolean(c));
     } catch {
       // Ohne Erkennung füllt der Fahrer selbst aus.
@@ -116,6 +123,9 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
           ordner={ordner}
           praefix="vorne"
           pfade={vorne}
+          onFoto={(d) => {
+            dateien.current.vorne = d;
+          }}
           onChange={(p) => {
             setVorne(p);
             void auslesen(p, hinten);
@@ -133,6 +143,9 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
           ordner={ordner}
           praefix="hinten"
           pfade={hinten}
+          onFoto={(d) => {
+            dateien.current.hinten = d;
+          }}
           onChange={(p) => {
             setHinten(p);
             void auslesen(vorne, p);
@@ -148,10 +161,10 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
           Klassen und Daten sind von deiner letzten Prüfung übernommen. Ändere sie nur, wenn sich etwas geändert hat.
         </p>
       )}
-      {liest && <p className="rounded-xl bg-grund p-3 text-sm font-semibold">Ich lese deinen Führerschein …</p>}
+      {liest && <p className="rounded-xl bg-grund p-3 text-sm font-semibold">Ich lese deinen Führerschein … das dauert ein paar Sekunden.</p>}
       {gelesen && !liest && (
         <p className="rounded-xl bg-marke-gelb/30 p-3 text-sm font-semibold">
-          Klassen und Daten wurden aus den Fotos gelesen. Bitte prüfe sie und korrigiere, wenn etwas nicht stimmt.
+          Klassen und Daten wurden aus den Fotos gelesen. Bitte vergleiche sie kurz mit deinem Führerschein und korrigiere, wenn etwas nicht stimmt.
         </p>
       )}
 
