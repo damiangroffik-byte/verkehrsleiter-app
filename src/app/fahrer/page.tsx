@@ -32,7 +32,7 @@ export default async function FahrerStart() {
       .from("kontrollen")
       .select("id, durchgefuehrt_am, hat_mangel, fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
       .order("durchgefuehrt_am", { ascending: false })
-      .limit(5)
+      .limit(1)
       .returns<LetzteKontrolle[]>(),
   ]);
   const ich = data?.[0];
@@ -57,7 +57,7 @@ export default async function FahrerStart() {
         >
           Abfahrtskontrolle starten
         </Link>
-        <Karte titel="Deine letzten Kontrollen">
+        <Karte titel="Deine letzte Kontrolle">
           {kontrollen && kontrollen.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {kontrollen.map((k) => (
