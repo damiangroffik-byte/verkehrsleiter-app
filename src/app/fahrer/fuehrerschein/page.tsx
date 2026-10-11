@@ -9,7 +9,7 @@ import { StatusZeile } from "@/components/StatusZeile";
 type EigenerFahrer = {
   id: string;
   firma_id: string;
-  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number } | null } | null;
+  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number; fuehrerschein_vorwarnung_tage: number } | null } | null;
 };
 
 export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/fahrer/fuehrerschein">) {
@@ -18,7 +18,7 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
 
   const { data: ich } = await supabase
     .from("fahrer")
-    .select("id, firma_id, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate))")
+    .select("id, firma_id, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
     .eq("user_id", user.id)
     .eq("aktiv", true)
     .returns<EigenerFahrer[]>();
@@ -46,7 +46,12 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
     .returns<(Pruefung & { klassen: string[] })[]>();
 
   const intervall = aktuell.firmen?.firma_einstellungen?.fuehrerschein_intervall_monate ?? 6;
-  const status = fuehrerscheinStatus(pruefungen ?? [], intervall, new Date(jetzt()));
+  const status = fuehrerscheinStatus(
+    pruefungen ?? [],
+    intervall,
+    new Date(jetzt()),
+    aktuell.firmen?.firma_einstellungen?.fuehrerschein_vorwarnung_tage,
+  );
   const letzte = status.offen ?? status.bestaetigt;
 
   return (
