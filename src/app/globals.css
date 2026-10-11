@@ -17,3 +17,28 @@ body {
   background: var(--color-grund);
   color: var(--color-marke-blau-dunkel);
 }
+
+/* Sichtbare Rückmeldung beim Antippen (Handy): Knöpfe und Links geben kurz nach. */
+a,
+button,
+[role="button"],
+label:has(> input[type="radio"], > input[type="checkbox"]) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 80ms ease-out,
+    filter 80ms ease-out;
+}
+
+a:active,
+button:not(:disabled):active,
+[role="button"]:active,
+label:has(> input[type="radio"], > input[type="checkbox"]):active {
+  transform: scale(0.97);
+  filter: brightness(0.9);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
