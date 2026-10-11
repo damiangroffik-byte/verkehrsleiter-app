@@ -5,10 +5,11 @@ import { PdfKnopf } from "@/components/PdfKnopf";
 import { StatusZeile } from "@/components/StatusZeile";
 import { Feld, Frist, Haken, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
-import { datumDe, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein/regeln";
+import { datumDe, fuehrerscheinStatus, tag, type Pruefung } from "@/lib/fuehrerschein/regeln";
+import { tageBisGeburtstag, wirdAlt } from "@/lib/geburtstag";
 import { fahrerAnlegen, fahrzeugAnlegen } from "../actions";
 
-type Fahrer = { id: string; vorname: string; nachname: string; email: string | null; user_id: string | null };
+type Fahrer = { id: string; vorname: string; nachname: string; email: string | null; user_id: string | null; geburtsdatum: string | null };
 type Kontrolle = {
   id: string;
   durchgefuehrt_am: string;
@@ -35,7 +36,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
   const heute = jetzt();
 
   const [{ data: fahrer }, { data: fahrzeuge }, { data: pruefungen }, { data: einstellung }, { data: kontrollen }] = await Promise.all([
-    supabase.from("fahrer").select("id, vorname, nachname, email, user_id").eq("firma_id", firmaId).order("nachname").returns<Fahrer[]>(),
+    supabase.from("fahrer").select("id, vorname, nachname, email, user_id, geburtsdatum").eq("firma_id", firmaId).order("nachname").returns<Fahrer[]>(),
     supabase
       .from("fahrzeuge")
       .select("id, kennzeichen, ist_anhaenger, adr, hu_faellig, sp_faellig, tacho_faellig")
@@ -62,6 +63,12 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
     const eigene = (pruefungen ?? []).filter((p) => p.fahrer_id === f.id);
     return { fahrer: f, status: fuehrerscheinStatus(eigene, intervall, new Date(heute), einstellung?.fuehrerschein_vorwarnung_tage), offenId: eigene.find((p) => p.status === "eingereicht")?.id };
   });
+  // Geburtstage heute und in den nächsten 5 Tagen.
+  const heuteTag = tag(new Date(heute));
+  const geburtstage = (fahrer ?? [])
+    .flatMap((f) => (f.geburtsdatum ? [{ f, tage: tageBisGeburtstag(f.geburtsdatum, heuteTag), alt: wirdAlt(f.geburtsdatum, heuteTag) }] : []))
+    .filter((g) => g.tage <= 5)
+    .sort((a, b) => a.tage - b.tage);
   const reihenfolge = { wartet: 0, rot: 1, orange: 2, ok: 3 };
   fsListe.sort((a, b) => reihenfolge[a.status.stufe] - reihenfolge[b.status.stufe]);
 
@@ -75,17 +82,36 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
         >
           Einstellungen
         </Link>
+        {geburtstage.length > 0 && (
+          <Karte titel="Geburtstage">
+            <ul className="flex flex-col gap-1">
+              {geburtstage.map(({ f, tage, alt }) => (
+                <li key={f.id}>
+                  <Link href={`/verwaltung/${firmaId}/fahrer/${f.id}`} className="flex min-h-11 items-center font-semibold">
+                    {tage === 0 ? "Heute" : tage === 1 ? "Morgen" : `In ${tage} Tagen`}: {f.vorname} {f.nachname} wird {alt}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Karte>
+        )}
         <Karte titel={`Fahrer (${fahrer?.length ?? 0})`}>
           {fahrer && fahrer.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {fahrer.map((f) => (
-                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                  <span className="font-semibold">
-                    {f.vorname} {f.nachname}
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    {f.email ?? "keine E-Mail"} · {f.user_id ? "angemeldet" : "noch nicht angemeldet"}
-                  </span>
+                <li key={f.id}>
+                  <Link
+                    href={`/verwaltung/${firmaId}/fahrer/${f.id}`}
+                    className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-3"
+                  >
+                    <span className="font-semibold text-marke-blau underline">
+                      {f.vorname} {f.nachname}
+                    </span>
+                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                      {f.email ?? "keine E-Mail"} · {f.user_id ? "angemeldet" : "noch nicht angemeldet"}
+                      <span aria-hidden className="text-lg text-marke-blau">›</span>
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>

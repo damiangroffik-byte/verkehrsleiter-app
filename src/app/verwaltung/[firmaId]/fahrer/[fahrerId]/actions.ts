@@ -1,0 +1,37 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+function wert(formData: FormData, feld: string) {
+  const w = String(formData.get(feld) ?? "").trim();
+  return w === "" ? null : w;
+}
+
+export async function fahrerSpeichern(firmaId: string, fahrerId: string, formData: FormData) {
+  const ziel = `/verwaltung/${firmaId}/fahrer/${fahrerId}`;
+  const vorname = wert(formData, "vorname");
+  const nachname = wert(formData, "nachname");
+  if (!vorname || !nachname) redirect(`${ziel}?fehler=${encodeURIComponent("Bitte Vorname und Nachname eintragen.")}`);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fahrer")
+    .update({
+      vorname,
+      nachname,
+      telefon: wert(formData, "telefon"),
+      geburtsdatum: wert(formData, "geburtsdatum"),
+      fqn_gueltig_bis: wert(formData, "fqn_gueltig_bis"),
+      adr_gueltig_bis: wert(formData, "adr_gueltig_bis"),
+      fahrerkarte_gueltig_bis: wert(formData, "fahrerkarte_gueltig_bis"),
+    })
+    .eq("id", fahrerId)
+    .eq("firma_id", firmaId)
+    .select("id");
+  if (error || !data?.length) redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt. Bitte noch einmal versuchen.")}`);
+
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  redirect(`${ziel}?gespeichert=1`);
+}
