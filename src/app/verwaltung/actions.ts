@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { kennzeichenGueltig, kennzeichenNormal } from "@/lib/kennzeichen";
 import { createClient } from "@/lib/supabase/server";
 
 function text(formData: FormData, feld: string) {
@@ -38,8 +39,9 @@ export async function fahrerAnlegen(firmaId: string, formData: FormData) {
 }
 
 export async function fahrzeugAnlegen(firmaId: string, formData: FormData) {
-  const kennzeichen = text(formData, "kennzeichen")?.toUpperCase();
+  const kennzeichen = kennzeichenNormal(text(formData, "kennzeichen") ?? "");
   if (!kennzeichen) return;
+  if (!kennzeichenGueltig(kennzeichen)) throw new Error(`Bitte gib das Kennzeichen so ein: KN-BC333 (eingegeben: ${kennzeichen}).`);
   const supabase = await createClient();
   const { error } = await supabase.from("fahrzeuge").insert({
     firma_id: firmaId,

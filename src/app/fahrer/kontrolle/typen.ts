@@ -16,8 +16,12 @@ export type KontrollPruefpunkt = Pruefpunkt & { fahrzeugart_id: string };
 export type KontrollEntwurf = {
   kontrolleId: string;
   firmaId: string;
-  fahrzeugId: string;
+  // Aus der Liste gewählt (Id) oder selbst eingetippt (Kennzeichen); eins von beiden ist gesetzt.
+  fahrzeugId: string | null;
+  kennzeichen: string | null;
   anhaengerId: string | null;
+  anhaengerKennzeichen: string | null;
+  fristen: Prueftermine;
   durchgefuehrtAm: string;
   unterschriftPfad: string;
   antworten: {
@@ -26,6 +30,15 @@ export type KontrollEntwurf = {
     bemerkung: string | null;
     fotoPfade: string[];
   }[];
+};
+
+// Vom Fahrer eingetragene Prüftermine (JJJJ-MM-TT).
+export type Prueftermine = {
+  hu: string;
+  sp: string;
+  tacho: string;
+  anhaengerHu: string;
+  anhaengerSp: string;
 };
 
 export type EinreichenErgebnis =

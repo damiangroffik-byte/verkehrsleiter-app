@@ -54,18 +54,6 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
   ]);
 
   const zugmaschinen = (fahrzeuge ?? []).filter((f) => !f.ist_anhaenger);
-  if (zugmaschinen.length === 0) {
-    return (
-      <Rahmen untertitel={aktuell.firmen?.name}>
-        <Karte titel="Kein Fahrzeug">
-          <p className="text-gray-600">
-            Für deine Firma ist noch kein Fahrzeug angelegt. Bitte wende dich an deinen Verkehrsleiter.
-          </p>
-        </Karte>
-      </Rahmen>
-    );
-  }
-
   return (
     <Rahmen untertitel={aktuell.firmen?.name}>
       {fahrerIn.length > 1 && (
