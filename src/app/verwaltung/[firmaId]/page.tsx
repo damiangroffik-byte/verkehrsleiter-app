@@ -189,7 +189,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
             <p className="text-gray-600">Noch keine Fahrzeuge angelegt.</p>
           )}
           <form action={fahrzeugAnlegen.bind(null, firmaId)} className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-3">
-            <Feld label="Kennzeichen" name="kennzeichen" required />
+            <Feld label="Kennzeichen" name="kennzeichen" placeholder="KN-BC333" autoCapitalize="characters" required />
             <Feld label="HU fällig" name="hu_faellig" type="date" />
             <Feld label="SP fällig" name="sp_faellig" type="date" />
             <Feld label="Tacho-Prüfung fällig" name="tacho_faellig" type="date" />

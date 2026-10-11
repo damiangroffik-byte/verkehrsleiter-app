@@ -1,19 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { FotoAufnahme } from "@/components/FotoAufnahme";
 import { JaNein } from "@/components/JaNein";
 import { Frist, Karte } from "@/components/ui";
 import { Unterschrift, alsPng } from "@/components/Unterschrift";
+import { kennzeichenGueltig, kennzeichenNormal } from "@/lib/kennzeichen";
 import { fotoPflicht, istMangel, istSichtbar, pruefeEntwurf, reifenfotosFaellig, type Antwort } from "@/lib/kontrolle/regeln";
 import { createClient } from "@/lib/supabase/browser";
 import { kontrolleEinreichen } from "./actions";
-import type { KontrollEntwurf, KontrollFahrzeug, KontrollPruefpunkt } from "./typen";
+import type { KontrollEntwurf, KontrollFahrzeug, KontrollPruefpunkt, Prueftermine } from "./typen";
 
 type Schritt = "fahrzeug" | "pruefpunkte" | "unterschrift" | "fertig";
 
 const leer: Antwort = { antwortJa: null, bemerkung: "", fotoPfade: [] };
+
+// Wahl "eigen": der Fahrer tippt das Kennzeichen selbst ein.
+const EIGEN = "eigen";
+
+type Aufgeloest = {
+  fahrzeug: KontrollFahrzeug | null; // Eintrag aus der Liste (auch wenn das getippte Kennzeichen dazu passt)
+  kennzeichen: string; // einheitliches Format, z. B. KN-BC333
+  neu: boolean; // getipptes Kennzeichen, das noch nicht in der Liste steht
+  fehler: string | null;
+};
+
+function aufloesen(wahl: string | null, eingabe: string, liste: KontrollFahrzeug[], andere: KontrollFahrzeug[], wort: string): Aufgeloest | null {
+  if (wahl === null) return null;
+  if (wahl !== EIGEN) {
+    const f = liste.find((x) => x.id === wahl) ?? null;
+    return { fahrzeug: f, kennzeichen: f?.kennzeichen ?? "", neu: false, fehler: f ? null : `Bitte wähle ${wort}.` };
+  }
+  const kennzeichen = kennzeichenNormal(eingabe);
+  const f = liste.find((x) => x.kennzeichen === kennzeichen) ?? null;
+  if (f) return { fahrzeug: f, kennzeichen, neu: false, fehler: null };
+  let fehler: string | null = null;
+  if (!kennzeichen) fehler = `Bitte gib das Kennzeichen ${wort === "ein Fahrzeug" ? "des Fahrzeugs" : "des Anhängers"} ein.`;
+  else if (!kennzeichenGueltig(kennzeichen)) fehler = "Bitte gib das Kennzeichen so ein: KN-BC333.";
+  else if (andere.some((x) => x.kennzeichen === kennzeichen))
+    fehler = `${kennzeichen} ist als ${wort === "ein Fahrzeug" ? "Anhänger" : "Fahrzeug"} eingetragen.`;
+  return { fahrzeug: null, kennzeichen, neu: true, fehler };
+}
+
+const keineTermine: Prueftermine = { hu: "", sp: "", tacho: "", anhaengerHu: "", anhaengerSp: "" };
 
 export function KontrollAblauf({
   firmaId,
@@ -32,10 +62,20 @@ export function KontrollAblauf({
   reifenZuletzt: Record<string, string>;
   heute: number;
 }) {
+  const start = fahrzeuge.length === 1 ? fahrzeuge[0] : null;
   const [kontrolleId] = useState(() => crypto.randomUUID());
   const [schritt, setSchritt] = useState<Schritt>("fahrzeug");
-  const [fahrzeugId, setFahrzeugId] = useState<string | null>(fahrzeuge.length === 1 ? fahrzeuge[0].id : null);
-  const [anhaengerId, setAnhaengerId] = useState<string | null>(null);
+  const [wahl, setWahl] = useState<string | null>(start ? start.id : fahrzeuge.length === 0 ? EIGEN : null);
+  const [eingabe, setEingabe] = useState("");
+  const [anhWahl, setAnhWahl] = useState<string | null>(null);
+  const [anhEingabe, setAnhEingabe] = useState("");
+  const [termine, setTermine] = useState<Prueftermine>({
+    ...keineTermine,
+    hu: start?.hu_faellig ?? "",
+    sp: start?.sp_faellig ?? "",
+    tacho: start?.tacho_faellig ?? "",
+  });
+  const [vorbelegt, setVorbelegt] = useState({ fahrzeug: start?.id ?? null, anhaenger: null as string | null });
   const [antworten, setAntworten] = useState<Record<string, Antwort>>({});
   const [offen, setOffen] = useState<Record<string, boolean>>({});
   const [unterschrift, setUnterschrift] = useState<HTMLCanvasElement | null>(null);
@@ -44,22 +84,41 @@ export function KontrollAblauf({
   const [mitMangel, setMitMangel] = useState(false);
 
   const ordner = `${firmaId}/${kontrolleId}`;
-  const fahrzeug = fahrzeuge.find((f) => f.id === fahrzeugId) ?? null;
-  const gewaehlterAnhaenger = anhaenger.find((a) => a.id === anhaengerId) ?? null;
-  const reifenFaellig = fahrzeug ? reifenfotosFaellig(reifenZuletzt[fahrzeug.id] ?? null, new Date(heute)) : false;
+  const fz = aufloesen(wahl, eingabe, fahrzeuge, anhaenger, "ein Fahrzeug");
+  const anh = aufloesen(anhWahl, anhEingabe, anhaenger, fahrzeuge, "einen Anhänger");
+  const fahrzeug = fz?.fahrzeug ?? null;
+  const gewaehlterAnhaenger = anh?.fahrzeug ?? null;
+  const fahrzeugBereit = Boolean(fz && !fz.fehler);
+  const reifenFaellig = fahrzeugBereit ? reifenfotosFaellig(fahrzeug ? (reifenZuletzt[fahrzeug.id] ?? null) : null, new Date(heute)) : false;
 
-  const sichtbare = useMemo(() => {
-    if (!fahrzeug) return [];
-    const art = fahrzeug.fahrzeugart_id ?? standardArtId;
-    const lage = { adr: fahrzeug.adr || Boolean(gewaehlterAnhaenger?.adr), mitAnhaenger: Boolean(gewaehlterAnhaenger) };
-    return pruefpunkte.filter((p) => p.fahrzeugart_id === art && istSichtbar(p, lage));
-  }, [fahrzeug, gewaehlterAnhaenger, pruefpunkte, standardArtId]);
+  // Prüftermine mit den bekannten Werten vorbelegen, sobald ein anderes Fahrzeug gewählt ist.
+  const fzSchluessel = fahrzeug?.id ?? null;
+  const anhSchluessel = gewaehlterAnhaenger?.id ?? null;
+  if (fzSchluessel !== vorbelegt.fahrzeug || anhSchluessel !== vorbelegt.anhaenger) {
+    setVorbelegt({ fahrzeug: fzSchluessel, anhaenger: anhSchluessel });
+    setTermine((t) => ({
+      ...t,
+      ...(fzSchluessel !== vorbelegt.fahrzeug && {
+        hu: fahrzeug?.hu_faellig ?? "",
+        sp: fahrzeug?.sp_faellig ?? "",
+        tacho: fahrzeug?.tacho_faellig ?? "",
+      }),
+      ...(anhSchluessel !== vorbelegt.anhaenger && {
+        anhaengerHu: gewaehlterAnhaenger?.hu_faellig ?? "",
+        anhaengerSp: gewaehlterAnhaenger?.sp_faellig ?? "",
+      }),
+    }));
+  }
 
-  const abschnitte = useMemo(() => {
-    const gruppen = new Map<string, KontrollPruefpunkt[]>();
-    for (const p of sichtbare) gruppen.set(p.abschnitt, [...(gruppen.get(p.abschnitt) ?? []), p]);
-    return [...gruppen.entries()];
-  }, [sichtbare]);
+  const art = fahrzeug?.fahrzeugart_id ?? standardArtId;
+  const lage = { adr: Boolean(fahrzeug?.adr || gewaehlterAnhaenger?.adr), mitAnhaenger: anh !== null };
+  const sichtbare = fahrzeugBereit ? pruefpunkte.filter((p) => p.fahrzeugart_id === art && istSichtbar(p, lage)) : [];
+
+  const gruppen = new Map<string, KontrollPruefpunkt[]>();
+  for (const p of sichtbare) gruppen.set(p.abschnitt, [...(gruppen.get(p.abschnitt) ?? []), p]);
+  const abschnitte = [...gruppen.entries()];
+
+  const anhaengerText = anh ? anh.kennzeichen : null;
 
   function antworte(id: string, teil: Partial<Antwort>) {
     setAntworten((a) => ({ ...a, [id]: { ...(a[id] ?? leer), ...teil } }));
@@ -78,8 +137,31 @@ export function KontrollAblauf({
     }
   }
 
+  // Fehlt etwas im ersten Schritt (Fahrzeug, Anhänger, Prüftermine)?
+  function fahrzeugFehler(): string | null {
+    if (!fz) return "Bitte wähle ein Fahrzeug oder tippe das Kennzeichen ein.";
+    if (fz.fehler) return fz.fehler;
+    if (anh?.fehler) return anh.fehler;
+    const pflicht: [keyof Prueftermine, string][] = [
+      ["hu", "HU"],
+      ["sp", "SP"],
+      ["tacho", "Tacho-Prüfung"],
+      ...(anh ? ([["anhaengerHu", "HU des Anhängers"], ["anhaengerSp", "SP des Anhängers"]] as [keyof Prueftermine, string][]) : []),
+    ];
+    const fehlt = pflicht.find(([k]) => !termine[k]);
+    return fehlt ? `Bitte trage den Termin für ${fehlt[1]} ein.` : null;
+  }
+
+  function weiterZuPruefpunkten() {
+    const f = fahrzeugFehler();
+    if (f) return zeigeFehler(f);
+    setFehler(null);
+    setSchritt("pruefpunkte");
+    window.scrollTo({ top: 0 });
+  }
+
   function weiterZuUnterschrift() {
-    const f = pruefeEntwurf({ fahrzeugId, antworten, unterschrieben: true }, sichtbare, reifenFaellig);
+    const f = pruefeEntwurf({ fahrzeugId: fahrzeugBereit ? EIGEN : null, antworten, unterschrieben: true }, sichtbare, reifenFaellig);
     if (f) return zeigeFehler(f.text, f.feld === "pruefpunkt" ? f.pruefpunktId : undefined);
     setFehler(null);
     setSchritt("unterschrift");
@@ -87,9 +169,14 @@ export function KontrollAblauf({
   }
 
   async function einreichen() {
-    const f = pruefeEntwurf({ fahrzeugId, antworten, unterschrieben: Boolean(unterschrift) }, sichtbare, reifenFaellig);
+    const vorn = fahrzeugFehler();
+    if (vorn) {
+      setSchritt("fahrzeug");
+      return zeigeFehler(vorn);
+    }
+    const f = pruefeEntwurf({ fahrzeugId: EIGEN, antworten, unterschrieben: Boolean(unterschrift) }, sichtbare, reifenFaellig);
     if (f) return zeigeFehler(f.text, f.feld === "pruefpunkt" ? f.pruefpunktId : undefined);
-    if (!unterschrift || !fahrzeugId) return;
+    if (!unterschrift || !fz) return;
 
     setSendet(true);
     setFehler(null);
@@ -105,8 +192,11 @@ export function KontrollAblauf({
       const entwurf: KontrollEntwurf = {
         kontrolleId,
         firmaId,
-        fahrzeugId,
-        anhaengerId,
+        fahrzeugId: fahrzeug?.id ?? null,
+        kennzeichen: fahrzeug ? null : fz.kennzeichen,
+        anhaengerId: gewaehlterAnhaenger?.id ?? null,
+        anhaengerKennzeichen: anh && !gewaehlterAnhaenger ? anh.kennzeichen : null,
+        fristen: anh ? termine : { ...termine, anhaengerHu: "", anhaengerSp: "" },
         durchgefuehrtAm,
         unterschriftPfad,
         antworten: sichtbare.map((p) => {
@@ -121,6 +211,7 @@ export function KontrollAblauf({
       };
       const ergebnis = await kontrolleEinreichen(entwurf);
       if (!ergebnis.ok) {
+        if (ergebnis.feld === "fristen" || ergebnis.feld === "fahrzeug" || ergebnis.feld === "anhaenger") setSchritt("fahrzeug");
         const punkt = ergebnis.feld?.startsWith("pruefpunkt:") ? ergebnis.feld.slice("pruefpunkt:".length) : undefined;
         return zeigeFehler(ergebnis.fehler, punkt);
       }
@@ -138,7 +229,7 @@ export function KontrollAblauf({
     return (
       <Karte titel="Kontrolle eingereicht">
         <p className="text-lg">
-          Danke! Die Abfahrtskontrolle für <strong>{fahrzeug?.kennzeichen}</strong> ist gespeichert.
+          Danke! Die Abfahrtskontrolle für <strong>{fz?.kennzeichen}</strong> ist gespeichert.
         </p>
         {mitMangel && (
           <p className="rounded-xl border-2 border-mangel bg-mangel/5 p-3 font-semibold text-mangel">
@@ -165,61 +256,49 @@ export function KontrollAblauf({
       {schritt === "fahrzeug" && (
         <>
           <Karte titel="Fahrzeug">
-            <div className="flex flex-col gap-2">
-              {fahrzeuge.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFahrzeugId(f.id)}
-                  aria-pressed={f.id === fahrzeugId}
-                  className={`flex min-h-12 items-center justify-between rounded-xl border-2 px-4 text-left font-semibold ${f.id === fahrzeugId ? "border-marke-blau bg-marke-blau text-white" : "border-gray-300 bg-white"}`}
-                >
-                  {f.kennzeichen}
-                  {f.adr && <span className="text-sm font-normal">ADR</span>}
-                </button>
-              ))}
-            </div>
+            <KennzeichenWahl
+              liste={fahrzeuge}
+              wahl={wahl}
+              onWahl={setWahl}
+              eingabe={eingabe}
+              onEingabe={setEingabe}
+              aufgeloest={fz}
+            />
           </Karte>
 
-          {anhaenger.length > 0 && (
-            <Karte titel="Anhänger">
-              <select
-                value={anhaengerId ?? ""}
-                onChange={(e) => setAnhaengerId(e.target.value || null)}
-                className="h-12 rounded-xl border border-gray-300 bg-white px-3 text-base"
-              >
-                <option value="">Ohne Anhänger</option>
-                {anhaenger.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.kennzeichen}
-                  </option>
-                ))}
-              </select>
-            </Karte>
-          )}
+          <Karte titel="Anhänger">
+            <KennzeichenWahl
+              liste={anhaenger}
+              wahl={anhWahl}
+              onWahl={setAnhWahl}
+              eingabe={anhEingabe}
+              onEingabe={setAnhEingabe}
+              aufgeloest={anh}
+              ohne="Ohne Anhänger"
+            />
+          </Karte>
 
-          {fahrzeug && (
-            <Karte titel="Fristen">
-              <Fristen fahrzeug={fahrzeug} heute={heute} />
-              {gewaehlterAnhaenger && (
+          {fz && (
+            <Karte titel="Prüftermine">
+              <p className="text-sm text-gray-600">Bitte prüfe die Termine und trage sie ein, wenn sie fehlen oder nicht stimmen.</p>
+              <div className="grid grid-cols-1 gap-3">
+                <Termin name="HU" wert={termine.hu} onChange={(hu) => setTermine((t) => ({ ...t, hu }))} heute={heute} />
+                <Termin name="SP" wert={termine.sp} onChange={(sp) => setTermine((t) => ({ ...t, sp }))} heute={heute} />
+                <Termin name="Tacho-Prüfung" wert={termine.tacho} onChange={(tacho) => setTermine((t) => ({ ...t, tacho }))} heute={heute} />
+              </div>
+              {anh && (
                 <>
-                  <p className="pt-2 text-sm font-semibold">Anhänger {gewaehlterAnhaenger.kennzeichen}</p>
-                  <Fristen fahrzeug={gewaehlterAnhaenger} heute={heute} />
+                  <p className="pt-2 text-sm font-semibold">Anhänger {anh.kennzeichen}</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    <Termin name="HU" wert={termine.anhaengerHu} onChange={(anhaengerHu) => setTermine((t) => ({ ...t, anhaengerHu }))} heute={heute} />
+                    <Termin name="SP" wert={termine.anhaengerSp} onChange={(anhaengerSp) => setTermine((t) => ({ ...t, anhaengerSp }))} heute={heute} />
+                  </div>
                 </>
               )}
             </Karte>
           )}
 
-          <button
-            type="button"
-            disabled={!fahrzeug}
-            onClick={() => {
-              setFehler(null);
-              setSchritt("pruefpunkte");
-              window.scrollTo({ top: 0 });
-            }}
-            className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau disabled:opacity-50"
-          >
+          <button type="button" onClick={weiterZuPruefpunkten} className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau">
             Weiter zu den Prüfpunkten
           </button>
         </>
@@ -228,8 +307,8 @@ export function KontrollAblauf({
       {schritt === "pruefpunkte" && (
         <>
           <p className="text-sm text-gray-600">
-            {fahrzeug?.kennzeichen}
-            {gewaehlterAnhaenger && ` mit ${gewaehlterAnhaenger.kennzeichen}`} ·{" "}
+            {fz?.kennzeichen}
+            {anhaengerText && ` mit ${anhaengerText}`} ·{" "}
             <button type="button" className="underline" onClick={() => setSchritt("fahrzeug")}>
               ändern
             </button>
@@ -300,8 +379,8 @@ export function KontrollAblauf({
         <>
           <Karte titel="Unterschrift">
             <p className="text-sm text-gray-600">
-              Mit deiner Unterschrift bestätigst du, dass du die Abfahrtskontrolle für {fahrzeug?.kennzeichen}
-              {gewaehlterAnhaenger && ` und ${gewaehlterAnhaenger.kennzeichen}`} durchgeführt hast.
+              Mit deiner Unterschrift bestätigst du, dass du die Abfahrtskontrolle für {fz?.kennzeichen}
+              {anhaengerText && ` und ${anhaengerText}`} durchgeführt hast.
             </p>
             <Unterschrift onChange={setUnterschrift} />
           </Karte>
@@ -322,24 +401,82 @@ export function KontrollAblauf({
   );
 }
 
-function Fristen({ fahrzeug, heute }: { fahrzeug: KontrollFahrzeug; heute: number }) {
+function KennzeichenWahl({
+  liste,
+  wahl,
+  onWahl,
+  eingabe,
+  onEingabe,
+  aufgeloest,
+  ohne,
+}: {
+  liste: KontrollFahrzeug[];
+  wahl: string | null;
+  onWahl: (wahl: string | null) => void;
+  eingabe: string;
+  onEingabe: (eingabe: string) => void;
+  aufgeloest: Aufgeloest | null;
+  ohne?: string;
+}) {
+  const knopf = (aktiv: boolean) =>
+    `flex min-h-12 items-center justify-between rounded-xl border-2 px-4 text-left font-semibold ${aktiv ? "border-marke-blau bg-marke-blau text-white" : "border-gray-300 bg-white"}`;
   return (
-    <dl className="grid grid-cols-3 gap-2 text-sm">
-      {(
-        [
-          ["HU", fahrzeug.hu_faellig],
-          ["SP", fahrzeug.sp_faellig],
-          ["Tacho", fahrzeug.tacho_faellig],
-        ] as const
-      ).map(([name, datum]) => (
-        <div key={name} className="flex flex-col">
-          <dt className="text-gray-600">{name}</dt>
-          <dd>
-            <Frist datum={datum} heute={heute} />
-          </dd>
-        </div>
+    <div className="flex flex-col gap-2">
+      {ohne && (
+        <button type="button" onClick={() => onWahl(null)} aria-pressed={wahl === null} className={knopf(wahl === null)}>
+          {ohne}
+        </button>
+      )}
+      {liste.map((f) => (
+        <button key={f.id} type="button" onClick={() => onWahl(f.id)} aria-pressed={f.id === wahl} className={knopf(f.id === wahl)}>
+          {f.kennzeichen}
+          {f.adr && <span className="text-sm font-normal">ADR</span>}
+        </button>
       ))}
-    </dl>
+      <button type="button" onClick={() => onWahl(EIGEN)} aria-pressed={wahl === EIGEN} className={knopf(wahl === EIGEN)}>
+        {liste.length > 0 ? "Anderes Kennzeichen eintippen" : "Kennzeichen eintippen"}
+      </button>
+      {wahl === EIGEN && (
+        <label className="flex flex-col gap-1 text-sm text-gray-700">
+          Kennzeichen, z. B. KN-BC333
+          <input
+            value={eingabe}
+            onChange={(e) => onEingabe(e.target.value.toUpperCase())}
+            autoCapitalize="characters"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            placeholder="KN-BC333"
+            className="h-12 rounded-xl border border-gray-300 bg-white px-3 text-lg font-semibold uppercase tracking-wide"
+          />
+          {aufgeloest && aufgeloest.kennzeichen && !aufgeloest.fehler && (
+            <span className="text-gray-700">
+              Wird gespeichert als <strong>{aufgeloest.kennzeichen}</strong>
+              {aufgeloest.neu ? " (neu)" : " (aus der Liste)"}
+            </span>
+          )}
+          {aufgeloest?.fehler && eingabe.trim() && <span className="text-mangel">{aufgeloest.fehler}</span>}
+        </label>
+      )}
+    </div>
+  );
+}
+
+function Termin({ name, wert, onChange, heute }: { name: string; wert: string; onChange: (wert: string) => void; heute: number }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <span className="flex justify-between">
+        {name} fällig
+        {wert && <Frist datum={wert} heute={heute} />}
+      </span>
+      <input
+        type="date"
+        value={wert}
+        onChange={(e) => onChange(e.target.value)}
+        className={`h-12 rounded-xl border bg-white px-3 text-base ${wert ? "border-gray-300" : "border-mangel"}`}
+      />
+    </label>
   );
 }
 
