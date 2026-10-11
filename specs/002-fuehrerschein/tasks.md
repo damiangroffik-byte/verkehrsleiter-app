@@ -12,3 +12,4 @@
 - [ ] T010 Erinnerungs-Mails per pg_cron (nächster Sprint)
 - [x] T011 [US4] KI-Erkennung `src/lib/fuehrerschein/erkennung.ts`, Vorbefüllen im Formular
 - [x] T012 [US5] Texterkennung auf dem Handy `src/lib/fuehrerschein/texterkennung.ts`, Auswertung `auswertung.ts` mit Tests
+- [ ] T013 Vor dem Verkauf: KI-Erkennung läuft über die Anthropic-API (USA). Bevor fremde Fahrer sie nutzen, AVV mit Anthropic und Datenschutzerklärung ergänzen oder auf KI im EU-Rechenzentrum umstellen. Die Handy-Texterkennung liest echte Führerscheine nicht zuverlässig (Stand 09.10.2026).
