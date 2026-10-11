@@ -22,7 +22,8 @@ export type Status = {
   abgelehnt: Pruefung | null;
 };
 
-const BALD_TAGE = 30;
+// Standard: so viele Tage vorher wird der Fahrer erinnert (einstellbar je Firma).
+export const VORWARNUNG_TAGE = 30;
 
 // Kalendertag in Berlin als JJJJ-MM-TT.
 export function tag(d: Date | string) {
@@ -47,7 +48,12 @@ export function datumDe(datum: string) {
 }
 
 // pruefungen: alle Prüfungen eines Fahrers, neueste zuerst.
-export function fuehrerscheinStatus(pruefungen: Pruefung[], intervallMonate: number, jetzt: Date): Status {
+export function fuehrerscheinStatus(
+  pruefungen: Pruefung[],
+  intervallMonate: number,
+  jetzt: Date,
+  vorwarnTage: number = VORWARNUNG_TAGE,
+): Status {
   const heute = tag(jetzt);
   const bestaetigt = pruefungen.find((p) => p.status === "bestaetigt") ?? null;
   const offen = pruefungen.find((p) => p.status === "eingereicht") ?? null;
@@ -71,10 +77,10 @@ export function fuehrerscheinStatus(pruefungen: Pruefung[], intervallMonate: num
     return s("rot", abgelehnt ? "Abgelehnt, bitte neu einreichen" : "Prüfung fällig");
   }
   if (offen) return s("wartet", "Wartet auf Prüfung");
-  if (tageBis(bestaetigt.gueltig_bis, heute) <= BALD_TAGE) return s("orange", `Fahrerlaubnis läuft am ${datumDe(bestaetigt.gueltig_bis)} ab`);
-  if (bestaetigt.code95_bis && tageBis(bestaetigt.code95_bis, heute) <= BALD_TAGE)
+  if (tageBis(bestaetigt.gueltig_bis, heute) <= vorwarnTage) return s("orange", `Fahrerlaubnis läuft am ${datumDe(bestaetigt.gueltig_bis)} ab`);
+  if (bestaetigt.code95_bis && tageBis(bestaetigt.code95_bis, heute) <= vorwarnTage)
     return s("orange", `Code 95 läuft am ${datumDe(bestaetigt.code95_bis)} ab`);
-  if (tageBis(naechste, heute) <= BALD_TAGE) return s("orange", `Prüfung fällig am ${datumDe(naechste)}`);
+  if (tageBis(naechste, heute) <= vorwarnTage) return s("orange", `Prüfung fällig am ${datumDe(naechste)}`);
   return s("ok", `Geprüft, nächste Prüfung ${datumDe(naechste)}`);
 }
 

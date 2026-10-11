@@ -9,7 +9,7 @@ import { einreichenNoetig, fuehrerscheinStatus, type Pruefung } from "@/lib/fueh
 type FahrerDaten = {
   id: string;
   vorname: string;
-  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number } | null } | null;
+  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number; fuehrerschein_vorwarnung_tage: number } | null } | null;
 };
 type LetzteKontrolle = {
   id: string;
@@ -23,7 +23,7 @@ export default async function FahrerStart() {
   const [{ data }, { data: kontrollen }] = await Promise.all([
     supabase
       .from("fahrer")
-      .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate))")
+      .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
       .eq("user_id", user.id)
       .limit(1)
       .returns<FahrerDaten[]>(),
@@ -45,7 +45,13 @@ export default async function FahrerStart() {
         .limit(20)
         .returns<Pruefung[]>()
     : { data: null };
-  const fs = fuehrerscheinStatus(pruefungen ?? [], ich?.firmen?.firma_einstellungen?.fuehrerschein_intervall_monate ?? 6, new Date(jetzt()));
+  const einstellung = ich?.firmen?.firma_einstellungen;
+  const fs = fuehrerscheinStatus(
+    pruefungen ?? [],
+    einstellung?.fuehrerschein_intervall_monate ?? 6,
+    new Date(jetzt()),
+    einstellung?.fuehrerschein_vorwarnung_tage,
+  );
 
   return (
     <main className="flex flex-1 flex-col">

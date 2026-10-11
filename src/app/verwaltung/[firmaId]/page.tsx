@@ -48,7 +48,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
       .eq("firma_id", firmaId)
       .order("eingereicht_am", { ascending: false })
       .returns<FsPruefung[]>(),
-    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate").eq("firma_id", firmaId).maybeSingle(),
+    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage").eq("firma_id", firmaId).maybeSingle(),
     supabase
       .from("kontrollen")
       .select("id, durchgefuehrt_am, hat_mangel, fahrer(vorname, nachname), fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
@@ -60,7 +60,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
   const intervall = einstellung?.fuehrerschein_intervall_monate ?? 6;
   const fsListe = (fahrer ?? []).map((f) => {
     const eigene = (pruefungen ?? []).filter((p) => p.fahrer_id === f.id);
-    return { fahrer: f, status: fuehrerscheinStatus(eigene, intervall, new Date(heute)), offenId: eigene.find((p) => p.status === "eingereicht")?.id };
+    return { fahrer: f, status: fuehrerscheinStatus(eigene, intervall, new Date(heute), einstellung?.fuehrerschein_vorwarnung_tage), offenId: eigene.find((p) => p.status === "eingereicht")?.id };
   });
   const reihenfolge = { wartet: 0, rot: 1, orange: 2, ok: 3 };
   fsListe.sort((a, b) => reihenfolge[a.status.stufe] - reihenfolge[b.status.stufe]);
@@ -69,6 +69,12 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
     <main className="flex flex-1 flex-col">
       <Kopfleiste titel={firma.firmen?.name ?? "Firma"} untertitel="Fahrer und Fahrzeuge" zurueck="/verwaltung" />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5">
+        <Link
+          href={`/verwaltung/${firmaId}/einstellungen`}
+          className="flex h-12 items-center justify-center gap-2 self-start rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
+        >
+          Einstellungen
+        </Link>
         <Karte titel={`Fahrer (${fahrer?.length ?? 0})`}>
           {fahrer && fahrer.length > 0 ? (
             <ul className="divide-y divide-gray-200">

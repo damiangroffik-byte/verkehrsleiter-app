@@ -40,6 +40,11 @@ describe("fuehrerscheinStatus", () => {
     expect(fuehrerscheinStatus([pruefung({})], 6, am("2026-10-02")).stufe).toBe("rot");
   });
 
+  it("Vorwarnung lässt sich einstellen", () => {
+    expect(fuehrerscheinStatus([pruefung({})], 6, am("2026-09-10"), 14).stufe).toBe("ok");
+    expect(fuehrerscheinStatus([pruefung({})], 6, am("2026-09-20"), 14).stufe).toBe("orange");
+  });
+
   it("abgelaufene Fahrerlaubnis ist rot", () => {
     const s = fuehrerscheinStatus([pruefung({ gueltig_bis: "2026-06-30" })], 6, am("2026-07-01"));
     expect(s).toMatchObject({ stufe: "rot", text: "Fahrerlaubnis abgelaufen" });
