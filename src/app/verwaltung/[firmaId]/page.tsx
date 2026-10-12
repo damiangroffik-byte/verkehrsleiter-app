@@ -92,6 +92,12 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
           >
             Prüfpunkte festlegen
           </Link>
+          <Link
+            href={`/verwaltung/${firmaId}/unterweisungen`}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
+          >
+            Unterweisungen
+          </Link>
         </div>
         {geburtstage.length > 0 && (
           <Karte titel="Geburtstage">
