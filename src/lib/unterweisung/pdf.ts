@@ -125,7 +125,8 @@ export async function nachweisPdf(d: NachweisDaten): Promise<Uint8Array> {
   for (const a of d.abschnitte) {
     platz(30);
     absatz(a.titel, RAND, fett, 10);
-    for (const p of a.punkte) {
+    if (a.text) absatz(a.text, RAND, normal, 9);
+    for (const p of a.punkte ?? []) {
       const zeilen = umbrechen(p, normal, 9, BREITE - 2 * RAND - 12);
       platz(zeilen.length * 12);
       seite.drawCircle({ x: RAND + 4, y: y + 3, size: 1.5, color: BLAU });

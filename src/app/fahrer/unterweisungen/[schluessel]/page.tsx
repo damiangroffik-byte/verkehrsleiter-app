@@ -24,6 +24,7 @@ export default async function UnterweisungSeite({ params }: PageProps<"/fahrer/u
         firmaId={daten.fahrer.firma_id}
         schluessel={schluessel}
         titel={block.titel}
+        dauer={block.dauer_min}
         abschnitte={inhalt?.inhalt ?? []}
         fragen={(fragen as Frage[] | null) ?? []}
       />

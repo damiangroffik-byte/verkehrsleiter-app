@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockStatus, mischen, noetig, type Teilnahme } from "./regeln";
+import { blockStatus, mischen, noetig, seiten, type Teilnahme } from "./regeln";
 
 const t = (teil: Partial<Teilnahme>): Teilnahme => ({
   id: "x",
@@ -51,5 +51,15 @@ describe("Test", () => {
   it("mischen behält alle Antworten", () => {
     const r = mischen(4, () => 0.3);
     expect([...r].sort()).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("seiten", () => {
+  it("wechselt Abschnitt und Frage ab", () => {
+    expect(seiten(2, 2).map((s) => `${s.art[0]}${s.i}`)).toEqual(["a0", "f0", "a1", "f1"]);
+  });
+
+  it("übrige Fragen am Ende", () => {
+    expect(seiten(1, 3).map((s) => `${s.art[0]}${s.i}`)).toEqual(["a0", "f0", "f1", "f2"]);
   });
 });
