@@ -5,6 +5,8 @@ import { Karte } from "@/components/ui";
 import { StatusZeile } from "@/components/StatusZeile";
 import { holeNutzer, jetzt } from "@/lib/daten";
 import { einreichenNoetig, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein/regeln";
+import { blockStatus } from "@/lib/unterweisung/regeln";
+import { unterweisungenLaden } from "./unterweisungen/daten";
 
 type FahrerDaten = {
   id: string;
@@ -20,7 +22,7 @@ type LetzteKontrolle = {
 
 export default async function FahrerStart() {
   const { supabase, user } = await holeNutzer();
-  const [{ data }, { data: kontrollen }] = await Promise.all([
+  const [{ data }, { data: kontrollen }, unterweisungen] = await Promise.all([
     supabase
       .from("fahrer")
       .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
@@ -34,6 +36,7 @@ export default async function FahrerStart() {
       .order("durchgefuehrt_am", { ascending: false })
       .limit(1)
       .returns<LetzteKontrolle[]>(),
+    unterweisungenLaden(supabase, user.id),
   ]);
   const ich = data?.[0];
   const { data: pruefungen } = ich
@@ -46,6 +49,9 @@ export default async function FahrerStart() {
         .returns<Pruefung[]>()
     : { data: null };
   const einstellung = ich?.firmen?.firma_einstellungen;
+  const uwFaellig = unterweisungen
+    ? unterweisungen.bloecke.filter((b) => blockStatus(unterweisungen.teilnahmen.filter((t) => t.unterweisung === b.schluessel), new Date(jetzt())).faellig).length
+    : 0;
   const fs = fuehrerscheinStatus(
     pruefungen ?? [],
     einstellung?.fuehrerschein_intervall_monate ?? 6,
@@ -103,9 +109,20 @@ export default async function FahrerStart() {
             {einreichenNoetig(fs) ? "Führerschein fotografieren" : "Führerschein ansehen"}
           </Link>
         </Karte>
-        <Karte titel="Bald verfügbar">
-          <p className="text-gray-600">Unterweisungen folgen.</p>
-        </Karte>
+        {unterweisungen && (
+          <Karte titel="Unterweisungen">
+            <StatusZeile
+              stufe={uwFaellig > 0 ? "rot" : "ok"}
+              text={uwFaellig === 0 ? "Alle Unterweisungen erledigt" : uwFaellig === 1 ? "1 Unterweisung ist fällig" : `${uwFaellig} Unterweisungen sind fällig`}
+            />
+            <Link
+              href="/fahrer/unterweisungen"
+              className={`flex h-12 items-center justify-center rounded-xl font-semibold ${uwFaellig > 0 ? "bg-marke-gelb text-marke-blau" : "border-2 border-marke-blau text-marke-blau"}`}
+            >
+              {uwFaellig > 0 ? "Unterweisungen machen" : "Unterweisungen ansehen"}
+            </Link>
+          </Karte>
+        )}
       </div>
     </main>
   );
