@@ -7,6 +7,7 @@ type Zeile = {
   eingegangen_am: string;
   unterschrift_pfad: string;
   fristen: BerichtDaten["fristen"];
+  abfahrt_freigegeben: boolean;
   firma: { name: string } | null;
   fahrer: { vorname: string; nachname: string } | null;
   fahrzeug: { kennzeichen: string } | null;
@@ -19,6 +20,7 @@ type Zeile = {
     bemerkung: string | null;
     foto_pfade: string[];
     reihenfolge: number;
+    losfahren: boolean | null;
   }[];
 };
 
@@ -33,12 +35,12 @@ export async function kontrolleBericht(supabase: SupabaseClient, kontrolleId: st
   const { data: k } = await supabase
     .from("kontrollen")
     .select(
-      `id, durchgefuehrt_am, eingegangen_am, unterschrift_pfad, fristen,
+      `id, durchgefuehrt_am, eingegangen_am, unterschrift_pfad, fristen, abfahrt_freigegeben,
        firma:firmen(name),
        fahrer(vorname, nachname),
        fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen),
        anhaenger:fahrzeuge!kontrollen_anhaenger_id_fkey(kennzeichen),
-       antworten(abschnitt, frage, antwort_ja, ist_mangel, bemerkung, foto_pfade, reihenfolge)`,
+       antworten(abschnitt, frage, antwort_ja, ist_mangel, bemerkung, foto_pfade, reihenfolge, losfahren)`,
     )
     .eq("id", kontrolleId)
     .maybeSingle<Zeile>();
@@ -53,6 +55,7 @@ export async function kontrolleBericht(supabase: SupabaseClient, kontrolleId: st
         antwortJa: a.antwort_ja,
         istMangel: a.ist_mangel,
         bemerkung: a.bemerkung,
+        losfahren: a.losfahren,
         // Nur Mangel-Fotos ins PDF, die monatlichen Reifenfotos bleiben in der App.
         fotos: a.ist_mangel
           ? (await Promise.all(a.foto_pfade.map((p) => laden(supabase, p)))).filter((f): f is Uint8Array => f !== null)
@@ -69,6 +72,7 @@ export async function kontrolleBericht(supabase: SupabaseClient, kontrolleId: st
     durchgefuehrtAm: k.durchgefuehrt_am,
     eingegangenAm: k.eingegangen_am,
     fristen: k.fristen ?? {},
+    abfahrtFreigegeben: k.abfahrt_freigegeben,
     antworten,
     unterschrift: await laden(supabase, k.unterschrift_pfad),
   });

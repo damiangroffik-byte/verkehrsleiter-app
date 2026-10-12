@@ -8,6 +8,8 @@ export type BerichtAntwort = {
   antwortJa: boolean;
   istMangel: boolean;
   bemerkung: string | null;
+  // Antwort auf „Darf ich so losfahren?“ (nur bei Mangel, bei älteren Kontrollen leer).
+  losfahren?: boolean | null;
   fotos: Uint8Array[];
 };
 
@@ -18,7 +20,14 @@ export type BerichtDaten = {
   fahrer: string;
   durchgefuehrtAm: string;
   eingegangenAm: string;
-  fristen: { hu_faellig?: string | null; sp_faellig?: string | null; tacho_faellig?: string | null };
+  fristen: {
+    hu_faellig?: string | null;
+    sp_faellig?: string | null;
+    tacho_faellig?: string | null;
+    ladebordwand_uvv_bis?: string | null;
+    ameise_uvv_bis?: string | null;
+  };
+  abfahrtFreigegeben?: boolean;
   antworten: BerichtAntwort[];
   unterschrift: Uint8Array | null;
 };
@@ -33,6 +42,11 @@ const HOEHE = 841.89;
 
 function zeit(t: string) {
   return new Date(t).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" }) + " Uhr";
+}
+
+function monat(d: string) {
+  const [j, m] = d.split("-");
+  return `${m}/${j}`;
 }
 
 function datum(d: string | null | undefined) {
@@ -104,6 +118,19 @@ export async function kontrollePdf(d: BerichtDaten): Promise<Uint8Array> {
     ["Durchgeführt", zeit(d.durchgefuehrtAm)],
     ["Eingegangen", zeit(d.eingegangenAm)],
     ["Fristen", `HU ${datum(d.fristen.hu_faellig)} · SP ${datum(d.fristen.sp_faellig)} · Tacho ${datum(d.fristen.tacho_faellig)}`],
+    ...(d.fristen.ladebordwand_uvv_bis || d.fristen.ameise_uvv_bis
+      ? ([
+          [
+            "UVV",
+            [
+              d.fristen.ladebordwand_uvv_bis && `Ladebordwand bis ${monat(d.fristen.ladebordwand_uvv_bis)}`,
+              d.fristen.ameise_uvv_bis && `Elektro-Ameise bis ${monat(d.fristen.ameise_uvv_bis)}`,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          ],
+        ] as [string, string][])
+      : []),
   ];
   for (const [k, v] of zeilen) {
     text(k, RAND, normal, 10, GRAU);
@@ -118,6 +145,10 @@ export async function kontrollePdf(d: BerichtDaten): Promise<Uint8Array> {
     12,
     mangelZahl === 0 ? GRUEN : ROT,
   );
+  if (d.abfahrtFreigegeben === false) {
+    y -= 16;
+    text("Abfahrt NICHT freigegeben", RAND, fett, 12, ROT);
+  }
   y -= 24;
 
   // Prüfpunkte nach Abschnitt
@@ -135,10 +166,10 @@ export async function kontrollePdf(d: BerichtDaten): Promise<Uint8Array> {
       y -= 14;
     }
     const frage = umbrechen(a.frage, normal, 10, frageBreite);
-    const bemerkung = a.bemerkung ? umbrechen(`Bemerkung: ${a.bemerkung}`, normal, 9, frageBreite) : [];
+    const losText = a.istMangel && a.losfahren != null ? (a.losfahren ? " · Fahrt mit geringem Mangel erlaubt" : " · Fahrt gestoppt") : "";
+    const bemerkung = a.bemerkung || losText ? umbrechen(`Bemerkung: ${a.bemerkung ?? "–"}${losText}`, normal, 9, frageBreite) : [];
     neueSeiteWennNoetig(frage.length * 13 + bemerkung.length * 12 + 4);
-    text(a.antwortJa ? "Ja" : "Nein", spalteAntwort, fett, 10);
-    text(a.istMangel ? "MANGEL" : "in Ordnung", spalteAntwort + 32, fett, 9, a.istMangel ? ROT : GRUEN);
+    text(a.istMangel ? "MANGEL" : "in Ordnung", spalteAntwort + 20, fett, 9, a.istMangel ? ROT : GRUEN);
     for (const z of frage) {
       text(z, RAND, a.istMangel ? fett : normal, 10);
       y -= 13;

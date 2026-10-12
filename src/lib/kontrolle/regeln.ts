@@ -1,7 +1,7 @@
 // Reine Geschäftsregeln der Abfahrtskontrolle (ohne Datenbank, testbar).
 // Die Datenbankfunktion kontrolle_einreichen prüft dieselben Regeln noch einmal.
 
-export type Bedingung = "immer" | "adr" | "anhaenger";
+export type Bedingung = "immer" | "adr" | "anhaenger" | "ladebordwand" | "ameise" | "winter";
 
 export type Pruefpunkt = {
   id: string;
@@ -11,13 +11,22 @@ export type Pruefpunkt = {
   mangel_bei_ja: boolean;
   bedingung: Bedingung;
   monatliche_fotos: boolean;
+  // Pflichtpunkt (BG Verkehr / gesetzlich): kann der Verkehrsleiter nicht abschalten.
+  pflicht: boolean;
+  foto_bei_mangel: boolean;
+  // Bei einem Mangel darf der Fahrer nicht losfahren.
+  mangel_stoppt: boolean;
 };
 
 export type Antwort = {
   antwortJa: boolean | null;
   bemerkung: string;
   fotoPfade: string[];
+  // Antwort auf „Darf ich so losfahren?“ (nur bei Mangel).
+  losfahren: boolean | null;
 };
+
+export type Lage = { adr: boolean; mitAnhaenger: boolean; ladebordwand: boolean; ameise: boolean; winter: boolean };
 
 export type Entwurf = {
   fahrzeugId: string | null;
@@ -30,11 +39,41 @@ export type Fehlend =
   | { feld: "pruefpunkt"; pruefpunktId: string; text: string }
   | { feld: "unterschrift"; text: string };
 
-// ADR-Punkte nur bei ADR-Fahrzeug oder ADR-Anhänger, Anhänger-Punkte nur mit Anhänger.
-export function istSichtbar(p: Pick<Pruefpunkt, "bedingung">, lage: { adr: boolean; mitAnhaenger: boolean }) {
-  if (p.bedingung === "adr") return lage.adr;
-  if (p.bedingung === "anhaenger") return lage.mitAnhaenger;
-  return true;
+// ADR-Punkte nur bei ADR, Anhänger-Punkte nur mit Anhänger, UVV-Punkte nur mit
+// Ladebordwand bzw. Elektro-Ameise, Winterpunkte nur vom 01.11. bis 31.03.
+export function istSichtbar(p: Pick<Pruefpunkt, "bedingung">, lage: Lage) {
+  switch (p.bedingung) {
+    case "adr":
+      return lage.adr;
+    case "anhaenger":
+      return lage.mitAnhaenger;
+    case "ladebordwand":
+      return lage.ladebordwand;
+    case "ameise":
+      return lage.ameise;
+    case "winter":
+      return lage.winter;
+    default:
+      return true;
+  }
+}
+
+// Winter vom 01.11. bis 31.03. (Zeitzone Europe/Berlin), wie ist_winter in der Datenbank.
+export function istWinter(jetzt: Date) {
+  const m = Number(new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", month: "numeric" }).format(jetzt));
+  return m >= 11 || m <= 3;
+}
+
+// Muss der Fahrer beim Mangel „Darf ich so losfahren?“ beantworten?
+export function losfahrenFrage(p: Pick<Pruefpunkt, "mangel_bei_ja" | "mangel_stoppt">, a: Pick<Antwort, "antwortJa">) {
+  return istMangel(p, a.antwortJa) && !p.mangel_stoppt;
+}
+
+// Darf der Fahrer nach dieser Antwort losfahren? null = noch offen.
+export function darfLosfahren(p: Pick<Pruefpunkt, "mangel_bei_ja" | "mangel_stoppt">, a: Pick<Antwort, "antwortJa" | "losfahren">) {
+  if (!istMangel(p, a.antwortJa)) return true;
+  if (p.mangel_stoppt) return false;
+  return a.losfahren;
 }
 
 export function istMangel(p: Pick<Pruefpunkt, "mangel_bei_ja">, antwortJa: boolean | null) {
@@ -53,7 +92,7 @@ function monat(d: Date) {
 
 // Fotos sind Pflicht bei Mangel und bei fälligen Reifenfotos.
 export function fotoPflicht(p: Pruefpunkt, antwortJa: boolean | null, reifenFaellig: boolean) {
-  return istMangel(p, antwortJa) || (p.monatliche_fotos && reifenFaellig);
+  return (istMangel(p, antwortJa) && p.foto_bei_mangel) || (p.monatliche_fotos && reifenFaellig);
 }
 
 // Erstes fehlendes Feld in der Reihenfolge, in der der Fahrer die Seite sieht.
@@ -74,8 +113,11 @@ export function pruefeEntwurf(
       return { feld: "pruefpunkt", pruefpunktId: p.id, text: `Bitte beschreibe den Mangel: ${p.frage}` };
     }
     if (fotoPflicht(p, a.antwortJa, reifenFaellig) && a.fotoPfade.length === 0) {
-      const text = mangel ? `Bitte mache ein Foto vom Mangel: ${p.frage}` : "Bitte fotografiere diesen Monat alle Reifen.";
+      const text = mangel && p.foto_bei_mangel ? `Bitte mache ein Foto vom Mangel: ${p.frage}` : "Bitte fotografiere diesen Monat alle Reifen.";
       return { feld: "pruefpunkt", pruefpunktId: p.id, text };
+    }
+    if (losfahrenFrage(p, a) && a.losfahren === null) {
+      return { feld: "pruefpunkt", pruefpunktId: p.id, text: `Bitte beantworte „Darf ich so losfahren?“: ${p.frage}` };
     }
   }
 

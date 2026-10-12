@@ -34,13 +34,15 @@ export type MangelMail = {
   zeitpunkt: string;
   frage: string;
   bemerkung: string | null;
+  // Antwort auf „Darf ich so losfahren?“; null bei früheren Kontrollen.
+  losfahren?: boolean | null;
   fotoLink: string | null;
   mangelLink: string;
 };
 
 export function mangelMail(m: MangelMail) {
   const zeit = new Date(m.zeitpunkt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
-  const betreff = `Mangel: ${m.kennzeichen} – ${m.frage}`;
+  const betreff = `${m.losfahren === false ? "STOPP – " : ""}Mangel: ${m.kennzeichen} – ${m.frage}`;
   const text = [
     "Bei einer Abfahrtskontrolle wurde ein Mangel gemeldet.",
     "",
@@ -49,6 +51,11 @@ export function mangelMail(m: MangelMail) {
     `Zeitpunkt: ${zeit} Uhr`,
     `Prüfpunkt: ${m.frage}`,
     `Beschreibung: ${m.bemerkung ?? "–"}`,
+    ...(m.losfahren === false
+      ? ["Abfahrt: NICHT freigegeben – der Fahrer fährt so nicht los."]
+      : m.losfahren === true
+        ? ["Abfahrt: mit geringem Mangel freigegeben."]
+        : []),
     "",
     m.fotoLink ? `Foto (7 Tage gültig): ${m.fotoLink}` : "Foto: nicht verfügbar",
     `Mangel öffnen: ${m.mangelLink}`,

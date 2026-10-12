@@ -12,7 +12,8 @@ type Ergebnis = {
   kontrolle_id: string;
   kennzeichen?: string;
   fahrer?: string;
-  maengel: { id: string; frage: string; bemerkung: string | null; foto_pfad: string | null }[];
+  maengel: { id: string; frage: string; bemerkung: string | null; foto_pfad: string | null; losfahren?: boolean | null }[];
+  abfahrt_freigegeben?: boolean;
   verkehrsleiter_emails: string[];
 };
 
@@ -56,6 +57,7 @@ export async function kontrolleEinreichen(entwurf: KontrollEntwurf): Promise<Ein
             zeitpunkt: entwurf.durchgefuehrtAm,
             frage: m.frage,
             bemerkung: m.bemerkung,
+            losfahren: m.losfahren ?? null,
             fotoLink: foto,
             mangelLink: `${basis}/verwaltung/${entwurf.firmaId}`,
           });
@@ -70,5 +72,5 @@ export async function kontrolleEinreichen(entwurf: KontrollEntwurf): Promise<Ein
   }
 
   revalidatePath("/fahrer");
-  return { ok: true, kontrolleId: ergebnis.kontrolle_id, mitMangel: ergebnis.maengel.length > 0 };
+  return { ok: true, kontrolleId: ergebnis.kontrolle_id, mitMangel: ergebnis.maengel.length > 0, freigegeben: ergebnis.abfahrt_freigegeben ?? true };
 }

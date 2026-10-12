@@ -48,6 +48,8 @@ export async function fahrzeugAnlegen(firmaId: string, formData: FormData) {
     kennzeichen,
     ist_anhaenger: formData.get("ist_anhaenger") === "on",
     adr: formData.get("adr") === "on",
+    ladebordwand: formData.get("ladebordwand") === "on",
+    ameise: formData.get("ameise") === "on",
     hu_faellig: text(formData, "hu_faellig"),
     sp_faellig: text(formData, "sp_faellig"),
     tacho_faellig: text(formData, "tacho_faellig"),

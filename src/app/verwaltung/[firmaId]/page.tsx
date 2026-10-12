@@ -14,6 +14,7 @@ type Kontrolle = {
   id: string;
   durchgefuehrt_am: string;
   hat_mangel: boolean;
+  abfahrt_freigegeben: boolean;
   fahrer: { vorname: string; nachname: string } | null;
   fahrzeug: { kennzeichen: string } | null;
 };
@@ -23,6 +24,8 @@ type Fahrzeug = {
   kennzeichen: string;
   ist_anhaenger: boolean;
   adr: boolean;
+  ladebordwand: boolean;
+  ameise: boolean;
   hu_faellig: string | null;
   sp_faellig: string | null;
   tacho_faellig: string | null;
@@ -39,7 +42,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
     supabase.from("fahrer").select("id, vorname, nachname, email, user_id, geburtsdatum").eq("firma_id", firmaId).order("nachname").returns<Fahrer[]>(),
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, ist_anhaenger, adr, hu_faellig, sp_faellig, tacho_faellig")
+      .select("id, kennzeichen, ist_anhaenger, adr, ladebordwand, ameise, hu_faellig, sp_faellig, tacho_faellig")
       .eq("firma_id", firmaId)
       .order("kennzeichen")
       .returns<Fahrzeug[]>(),
@@ -52,7 +55,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
     supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage").eq("firma_id", firmaId).maybeSingle(),
     supabase
       .from("kontrollen")
-      .select("id, durchgefuehrt_am, hat_mangel, fahrer(vorname, nachname), fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
+      .select("id, durchgefuehrt_am, hat_mangel, abfahrt_freigegeben, fahrer(vorname, nachname), fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
       .eq("firma_id", firmaId)
       .order("durchgefuehrt_am", { ascending: false })
       .limit(20)
@@ -76,12 +79,20 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
     <main className="flex flex-1 flex-col">
       <Kopfleiste titel={firma.firmen?.name ?? "Firma"} untertitel="Fahrer und Fahrzeuge" zurueck="/verwaltung" />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5">
-        <Link
-          href={`/verwaltung/${firmaId}/einstellungen`}
-          className="flex h-12 items-center justify-center gap-2 self-start rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
-        >
-          Einstellungen
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/verwaltung/${firmaId}/einstellungen`}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
+          >
+            Einstellungen
+          </Link>
+          <Link
+            href={`/verwaltung/${firmaId}/pruefpunkte`}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
+          >
+            Prüfpunkte festlegen
+          </Link>
+        </div>
         {geburtstage.length > 0 && (
           <Karte titel="Geburtstage">
             <ul className="flex flex-col gap-1">
@@ -140,7 +151,7 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
                     </span>
                     <span className="text-sm text-gray-600">
                       {new Date(k.durchgefuehrt_am).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })} Uhr ·{" "}
-                      <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>{k.hat_mangel ? "Mangel" : "ohne Mangel"}</span>
+                      <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>{k.hat_mangel ? (k.abfahrt_freigegeben ? "Mangel" : "Mangel · Fahrt gestoppt") : "ohne Mangel"}</span>
                     </span>
                   </span>
                   <PdfKnopf href={`/kontrolle/${k.id}/pdf`} className="flex h-11 items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau">
@@ -208,6 +219,8 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
                       <td className="py-2 pr-3">
                         {z.ist_anhaenger ? "Anhänger" : "Zugmaschine/LKW"}
                         {z.adr ? " · ADR" : ""}
+                        {z.ladebordwand ? " · Ladebordwand" : ""}
+                        {z.ameise ? " · Elektro-Ameise" : ""}
                       </td>
                       <td className="py-2 pr-3"><Frist heute={heute} datum={z.hu_faellig} /></td>
                       <td className="py-2 pr-3"><Frist heute={heute} datum={z.sp_faellig} /></td>
@@ -227,6 +240,8 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
             <Feld label="Tacho-Prüfung fällig" name="tacho_faellig" type="date" />
             <Haken label="Anhänger/Auflieger" name="ist_anhaenger" />
             <Haken label="ADR-Fahrzeug" name="adr" />
+            <Haken label="Ladebordwand" name="ladebordwand" />
+            <Haken label="Elektro-Ameise an Bord" name="ameise" />
             <div>
               <Knopf>Fahrzeug hinzufügen</Knopf>
             </div>
