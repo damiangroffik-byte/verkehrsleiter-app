@@ -2,11 +2,12 @@ import Link from "next/link";
 import { Kopfleiste } from "@/components/Kopfleiste";
 import { Karte } from "@/components/ui";
 import { holeNutzer, jetzt } from "@/lib/daten";
+import { istWinter } from "@/lib/kontrolle/regeln";
 import { KontrollAblauf } from "./KontrollAblauf";
 import type { KontrollFahrzeug, KontrollPruefpunkt } from "./typen";
 
 type ReifenZuletzt = { fahrzeug_id: string; zuletzt: string };
-type EigenerFahrer = { id: string; firma_id: string; firmen: { name: string } | null };
+type EigenerFahrer = { id: string; firma_id: string; vorname: string; firmen: { name: string } | null };
 
 export default async function KontrolleSeite({ searchParams }: PageProps<"/fahrer/kontrolle">) {
   const { firma } = await searchParams;
@@ -14,7 +15,7 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
 
   const { data: ich } = await supabase
     .from("fahrer")
-    .select("id, firma_id, firmen(name)")
+    .select("id, firma_id, vorname, firmen(name)")
     .eq("user_id", user.id)
     .eq("aktiv", true)
     .returns<EigenerFahrer[]>();
@@ -37,7 +38,7 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
   const [{ data: fahrzeuge }, { data: arten }, { data: pruefpunkte }, { data: reifen }] = await Promise.all([
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, ist_anhaenger, adr, hu_faellig, sp_faellig, tacho_faellig, fahrzeugart_id")
+      .select("id, kennzeichen, ist_anhaenger, adr, hu_faellig, sp_faellig, tacho_faellig, fahrzeugart_id, ladebordwand, ameise, ladebordwand_uvv_bis, ameise_uvv_bis")
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
       .order("kennzeichen")
@@ -45,15 +46,17 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
     supabase.from("fahrzeugarten").select("id, name").eq("firma_id", firmaId).returns<{ id: string; name: string }[]>(),
     supabase
       .from("pruefpunkte")
-      .select("id, fahrzeugart_id, abschnitt, reihenfolge, frage, mangel_bei_ja, bedingung, monatliche_fotos")
+      .select("id, fahrzeugart_id, abschnitt, reihenfolge, frage, mangel_bei_ja, bedingung, monatliche_fotos, pflicht, foto_bei_mangel, mangel_stoppt")
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
+      .eq("veraltet", false)
       .order("reihenfolge")
       .returns<KontrollPruefpunkt[]>(),
     supabase.rpc("reifenfotos_zuletzt", { f: firmaId }),
   ]);
 
   const zugmaschinen = (fahrzeuge ?? []).filter((f) => !f.ist_anhaenger);
+  const heute = jetzt();
   return (
     <Rahmen untertitel={aktuell.firmen?.name}>
       {fahrerIn.length > 1 && (
@@ -72,12 +75,14 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
       <KontrollAblauf
         key={firmaId}
         firmaId={firmaId}
+        vorname={aktuell.vorname}
         fahrzeuge={zugmaschinen}
         anhaenger={(fahrzeuge ?? []).filter((f) => f.ist_anhaenger)}
         pruefpunkte={pruefpunkte ?? []}
         standardArtId={arten?.find((a) => a.name === "Standard")?.id ?? null}
         reifenZuletzt={Object.fromEntries(((reifen ?? []) as ReifenZuletzt[]).map((r) => [r.fahrzeug_id, r.zuletzt]))}
-        heute={jetzt()}
+        heute={heute}
+        winter={istWinter(new Date(heute))}
       />
     </Rahmen>
   );
