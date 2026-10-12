@@ -418,47 +418,77 @@ function KennzeichenWahl({
   aufgeloest: Aufgeloest | null;
   ohne?: string;
 }) {
-  const knopf = (aktiv: boolean) =>
+  const [offen, setOffen] = useState(false);
+  const gewaehlt = wahl !== null && wahl !== EIGEN ? (liste.find((f) => f.id === wahl) ?? null) : null;
+  const eintrag = (aktiv: boolean) =>
     `flex min-h-12 items-center justify-between rounded-xl border-2 px-4 text-left font-semibold ${aktiv ? "border-marke-blau bg-marke-blau text-white" : "border-gray-300 bg-white"}`;
+
+  function waehle(id: string | null) {
+    onWahl(id);
+    onEingabe("");
+    setOffen(false);
+  }
+
+  function tippe(text: string) {
+    onEingabe(text.toUpperCase());
+    // Leeres Feld beim Anhänger heißt „ohne Anhänger“.
+    onWahl(text.trim() === "" && ohne ? null : EIGEN);
+  }
+
   return (
-    <div className="flex flex-col gap-2">
-      {ohne && (
-        <button type="button" onClick={() => onWahl(null)} aria-pressed={wahl === null} className={knopf(wahl === null)}>
-          {ohne}
-        </button>
-      )}
-      {liste.map((f) => (
-        <button key={f.id} type="button" onClick={() => onWahl(f.id)} aria-pressed={f.id === wahl} className={knopf(f.id === wahl)}>
-          {f.kennzeichen}
-          {f.adr && <span className="text-sm font-normal">ADR</span>}
-        </button>
-      ))}
-      <button type="button" onClick={() => onWahl(EIGEN)} aria-pressed={wahl === EIGEN} className={knopf(wahl === EIGEN)}>
-        {liste.length > 0 ? "Anderes Kennzeichen eintippen" : "Kennzeichen eintippen"}
-      </button>
-      {wahl === EIGEN && (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          Kennzeichen, z. B. KN-BC333
-          <input
-            value={eingabe}
-            onChange={(e) => onEingabe(e.target.value.toUpperCase())}
-            autoCapitalize="characters"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="done"
-            placeholder="KN-BC333"
-            className="h-12 rounded-xl border border-gray-300 bg-white px-3 text-lg font-semibold uppercase tracking-wide"
-          />
-          {aufgeloest && aufgeloest.kennzeichen && !aufgeloest.fehler && (
-            <span className="text-gray-700">
-              Wird gespeichert als <strong>{aufgeloest.kennzeichen}</strong>
-              {aufgeloest.neu ? " (neu)" : " (aus der Liste)"}
+    <div className="flex flex-col gap-3">
+      {(liste.length > 0 || ohne) && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setOffen((o) => !o)}
+            aria-expanded={offen}
+            className={`flex min-h-12 items-center justify-between rounded-xl border-2 px-4 text-left font-semibold ${gewaehlt ? "border-marke-blau bg-marke-blau text-white" : "border-marke-blau bg-white text-marke-blau"}`}
+          >
+            <span>{gewaehlt ? gewaehlt.kennzeichen : `${ohne ? "Gespeicherte Anhänger" : "Gespeicherte Fahrzeuge"} (${liste.length})`}</span>
+            <span aria-hidden className="text-sm font-normal">
+              {offen ? "schließen ▴" : gewaehlt ? "ändern ▾" : "auswählen ▾"}
             </span>
+          </button>
+          {offen && (
+            <div className="flex flex-col gap-2 rounded-xl bg-grund p-2">
+              {ohne && (
+                <button type="button" onClick={() => waehle(null)} aria-pressed={wahl === null} className={eintrag(wahl === null)}>
+                  {ohne}
+                </button>
+              )}
+              {liste.map((f) => (
+                <button key={f.id} type="button" onClick={() => waehle(f.id)} aria-pressed={f.id === wahl} className={eintrag(f.id === wahl)}>
+                  {f.kennzeichen}
+                  {f.adr && <span className="text-sm font-normal">ADR</span>}
+                </button>
+              ))}
+              {liste.length === 0 && <p className="px-2 py-1 text-sm text-gray-600">Noch keine gespeichert.</p>}
+            </div>
           )}
-          {aufgeloest?.fehler && eingabe.trim() && <span className="text-mangel">{aufgeloest.fehler}</span>}
-        </label>
+        </div>
       )}
+      <label className="flex flex-col gap-1 text-sm text-gray-700">
+        {liste.length > 0 || ohne ? "Oder Kennzeichen selbst eintragen, z. B. KN-BC333" : "Kennzeichen eintragen, z. B. KN-BC333"}
+        <input
+          value={eingabe}
+          onChange={(e) => tippe(e.target.value)}
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          placeholder="KN-BC333"
+          className={`h-12 rounded-xl border bg-white px-3 text-lg font-semibold uppercase tracking-wide ${wahl === EIGEN ? "border-marke-blau" : "border-gray-300"}`}
+        />
+        {wahl === EIGEN && aufgeloest && aufgeloest.kennzeichen && !aufgeloest.fehler && (
+          <span className="text-gray-700">
+            Wird gespeichert als <strong>{aufgeloest.kennzeichen}</strong>
+            {aufgeloest.neu ? " (neu)" : " (aus der Liste)"}
+          </span>
+        )}
+        {wahl === EIGEN && aufgeloest?.fehler && eingabe.trim() && <span className="text-mangel">{aufgeloest.fehler}</span>}
+      </label>
     </div>
   );
 }
