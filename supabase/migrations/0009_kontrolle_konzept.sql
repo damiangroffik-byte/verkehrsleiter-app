@@ -487,14 +487,13 @@ begin
       if pp.foto_bei_mangel and cardinality(fotos) = 0 then
         raise exception 'Bitte mache ein Foto vom Mangel: %', pp.frage using hint = 'pruefpunkt:' || pp.id;
       end if;
+      -- Ohne Antwort auf „Darf ich so losfahren?“ (ältere App-Version) gilt die Abfahrt nicht als freigegeben.
       if pp.mangel_stoppt then
         los := false;
       elsif jsonb_typeof(a -> 'losfahren') = 'boolean' then
         los := (a ->> 'losfahren')::boolean;
-      else
-        raise exception 'Bitte beantworte „Darf ich so losfahren?“: %', pp.frage using hint = 'pruefpunkt:' || pp.id;
       end if;
-      freigabe := freigabe and los;
+      freigabe := freigabe and coalesce(los, false);
     end if;
     if pp.monatliche_fotos and reifen_faellig and cardinality(fotos) = 0 then
       raise exception 'Bitte fotografiere diesen Monat alle Reifen.' using hint = 'pruefpunkt:' || pp.id;
@@ -513,8 +512,15 @@ begin
     end if;
   end loop;
 
-  -- Antworten auf Prüfpunkte, die nicht (mehr) sichtbar sind, sind ein Fehler.
-  if (select count(*) from public.antworten where kontrolle_id = k_id) <> jsonb_array_length(p -> 'antworten') then
+  -- Antworten auf Prüfpunkte, die es in dieser Fahrzeuggruppe nicht (mehr) gibt, sind ein Fehler.
+  -- Antworten auf Punkte, die heute nur nicht gelten (z. B. Winter), werden ignoriert.
+  if exists (
+    select 1 from jsonb_array_elements(p -> 'antworten') x(v)
+    where not exists (
+      select 1 from public.pruefpunkte q
+      where q.id::text = v ->> 'pruefpunktId' and q.firma_id = f_id and q.fahrzeugart_id = art and q.aktiv and not q.veraltet
+    )
+  ) then
     raise exception 'Die Checkliste hat sich geändert. Bitte lade die Seite neu.' using hint = 'entwurf';
   end if;
 
