@@ -28,6 +28,7 @@ export async function pruefpunktSchalten(firmaId: string, gruppe: string, id: st
     .eq("id", id)
     .eq("firma_id", firmaId)
     .eq("pflicht", false)
+    .eq("veraltet", false)
     .select("id");
   if (error || !data?.length) redirect(ziel(firmaId, gruppe, { fehler: KEIN_RECHT }));
   neuLaden(firmaId);

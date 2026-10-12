@@ -41,6 +41,7 @@ export default async function PruefpunkteSeite({ params, searchParams }: PagePro
       .from("pruefpunkte")
       .select("id, fahrzeugart_id, abschnitt, reihenfolge, frage, bedingung, aktiv, pflicht, eigen, foto_bei_mangel, mangel_stoppt")
       .eq("firma_id", firmaId)
+      .eq("veraltet", false)
       .order("reihenfolge")
       .returns<Punkt[]>(),
     supabase

@@ -49,6 +49,7 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
       .select("id, fahrzeugart_id, abschnitt, reihenfolge, frage, mangel_bei_ja, bedingung, monatliche_fotos, pflicht, foto_bei_mangel, mangel_stoppt")
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
+      .eq("veraltet", false)
       .order("reihenfolge")
       .returns<KontrollPruefpunkt[]>(),
     supabase.rpc("reifenfotos_zuletzt", { f: firmaId }),

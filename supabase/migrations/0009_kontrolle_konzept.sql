@@ -65,11 +65,18 @@ create policy "Verkehrsleiter löschen eigene Prüfpunkte" on public.pruefpunkte
   for delete using (public.ist_verkehrsleiter(firma_id) and eigen);
 
 -- ---------------------------------------------------------------------------
--- Neue Standard-Checkliste. Reihenfolge: Kategorie * 100 + Position.
+-- Alte Checkliste nicht löschen, sondern ausblenden: frühere Antworten verweisen
+-- weiter darauf. Danach die neue Standard-Checkliste.
+-- Reihenfolge: Kategorie * 100 + Position.
 -- Alle Fragen sind positiv formuliert: „In Ordnung“ = Ja, „Mangel“ = Nein.
 -- ---------------------------------------------------------------------------
 
-delete from public.vorlage_pruefpunkte;
+alter table public.vorlage_pruefpunkte add column veraltet boolean not null default false;
+alter table public.pruefpunkte add column veraltet boolean not null default false;
+update public.vorlage_pruefpunkte set veraltet = true, aktiv = false where pflicht = false and veraltet = false;
+alter table public.pruefpunkte disable trigger pruefpunkt_schutz;
+update public.pruefpunkte set veraltet = true, aktiv = false where pflicht = false and veraltet = false;
+alter table public.pruefpunkte enable trigger pruefpunkt_schutz;
 
 insert into public.vorlage_pruefpunkte (abschnitt, reihenfolge, frage, mangel_bei_ja, bedingung, monatliche_fotos, pflicht, aktiv, foto_bei_mangel, mangel_stoppt) values
   -- Rund um das Fahrzeug
@@ -157,7 +164,8 @@ returns void language sql security definer set search_path = '' as $$
     monatliche_fotos, aktiv, pflicht, foto_bei_mangel, mangel_stoppt)
   select f, art, v.abschnitt, v.reihenfolge, v.frage, v.mangel_bei_ja, v.bedingung,
     v.monatliche_fotos, v.aktiv, v.pflicht, v.foto_bei_mangel, v.mangel_stoppt
-  from public.vorlage_pruefpunkte v;
+  from public.vorlage_pruefpunkte v
+  where not v.veraltet;
 $$;
 
 revoke execute on function public.pruefpunkte_aus_vorlage(uuid, uuid) from public, anon, authenticated;
@@ -180,9 +188,7 @@ begin
 end;
 $$;
 
--- Bestehende Checklisten durch die neue ersetzen. Alte Antworten behalten Frage und Ergebnis
--- (pruefpunkt_id wird leer), die Nachweise bleiben also vollständig.
-delete from public.pruefpunkte;
+-- Neue Checkliste für alle bestehenden Fahrzeuggruppen.
 select public.pruefpunkte_aus_vorlage(a.firma_id, a.id) from public.fahrzeugarten a;
 
 -- Neue Fahrzeuggruppe mit den Prüfpunkten einer bestehenden Gruppe (inkl. eigener Punkte).
@@ -207,7 +213,7 @@ begin
       monatliche_fotos, aktiv, pflicht, eigen, foto_bei_mangel, mangel_stoppt)
     select f, art, p.abschnitt, p.reihenfolge, p.frage, p.mangel_bei_ja, p.bedingung,
       p.monatliche_fotos, p.aktiv, p.pflicht, p.eigen, p.foto_bei_mangel, p.mangel_stoppt
-    from public.pruefpunkte p where p.fahrzeugart_id = vorlage;
+    from public.pruefpunkte p where p.fahrzeugart_id = vorlage and not p.veraltet;
   else
     perform public.pruefpunkte_aus_vorlage(f, art);
   end if;
@@ -444,7 +450,7 @@ begin
 
   for pp in
     select * from public.pruefpunkte
-    where fahrzeugart_id = art and firma_id = f_id and aktiv
+    where fahrzeugart_id = art and firma_id = f_id and aktiv and not veraltet
       and (bedingung = 'immer'
         or (bedingung = 'adr' and (fz.adr or coalesce(anh.adr, false)))
         or (bedingung = 'anhaenger' and anh.id is not null)
