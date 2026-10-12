@@ -4,20 +4,22 @@ import Link from "next/link";
 import { useState } from "react";
 import { Unterschrift, alsPng } from "@/components/Unterschrift";
 import { createClient } from "@/lib/supabase/browser";
-import { BESTEHEN_PROZENT, mischen, noetig, type Abschnitt, type Frage } from "@/lib/unterweisung/regeln";
+import { BESTEHEN_PROZENT, mischen, noetig, seiten, type Abschnitt, type Frage } from "@/lib/unterweisung/regeln";
 import { testAuswerten, unterweisungUnterschreiben } from "../actions";
+import { Bild } from "./Bild";
 
-type Props = { firmaId: string; schluessel: string; titel: string; abschnitte: Abschnitt[]; fragen: Frage[] };
-type Schritt = "lesen" | "test" | "ergebnis" | "fertig";
-// Ein Testversuch: eigene ID und gemischte Antwortreihenfolge je Frage.
+type Props = { firmaId: string; schluessel: string; titel: string; dauer: number; abschnitte: Abschnitt[]; fragen: Frage[] };
+type Schritt = "start" | "lernen" | "ergebnis" | "fertig";
+// Ein Durchgang: eigene ID und gemischte Antwortreihenfolge je Frage.
 type Versuch = { id: string; reihenfolge: Record<string, number[]> };
 type Ergebnis = { richtig: number; gesamt: number; prozent: number; bestanden: boolean; falsch: string[] };
 
 const gelb = "flex h-14 w-full items-center justify-center rounded-xl bg-marke-gelb text-lg font-semibold text-marke-blau disabled:opacity-50";
 const rahmen = "flex h-12 w-full items-center justify-center rounded-xl border-2 border-marke-blau font-semibold text-marke-blau";
 
-export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fragen }: Props) {
-  const [schritt, setSchritt] = useState<Schritt>("lesen");
+export function UnterweisungAblauf({ firmaId, schluessel, titel, dauer, abschnitte, fragen }: Props) {
+  const [schritt, setSchritt] = useState<Schritt>("start");
+  const [seite, setSeite] = useState(0);
   const [versuch, setVersuch] = useState<Versuch | null>(null);
   const [antworten, setAntworten] = useState<Record<string, number>>({});
   const [ergebnis, setErgebnis] = useState<Ergebnis | null>(null);
@@ -26,27 +28,36 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
   const [sendet, setSendet] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
-  function gehe(s: Schritt) {
-    setSchritt(s);
-    setFehler(null);
+  const ablauf = seiten(abschnitte.length, fragen.length);
+
+  function oben() {
     window.scrollTo({ top: 0 });
   }
 
-  // Jeder Versuch bekommt eine neue ID und neu gemischte Antworten.
-  function testStarten() {
+  // Jeder Durchgang bekommt eine neue ID und neu gemischte Antworten.
+  function starten() {
     setVersuch({
       id: crypto.randomUUID(),
       reihenfolge: Object.fromEntries(fragen.map((f) => [f.id, mischen(f.antworten.length)])),
     });
     setAntworten({});
     setErgebnis(null);
-    gehe("test");
+    setSeite(0);
+    setFehler(null);
+    setSchritt("lernen");
+    oben();
   }
 
-  const beantwortet = fragen.filter((f) => antworten[f.id] !== undefined).length;
+  function zu(n: number) {
+    setSeite(n);
+    setFehler(null);
+    oben();
+  }
 
   async function auswerten() {
-    if (!versuch || beantwortet < fragen.length) return;
+    if (!versuch) return;
+    const offen = fragen.findIndex((f) => antworten[f.id] === undefined);
+    if (offen >= 0) return zu(ablauf.findIndex((s) => s.art === "frage" && s.i === offen));
     setSendet(true);
     setFehler(null);
     try {
@@ -58,9 +69,10 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
       });
       if (!a.ok) return setFehler(a.fehler);
       setErgebnis(a);
-      gehe("ergebnis");
+      setSchritt("ergebnis");
+      oben();
     } catch {
-      setFehler("Der Test konnte nicht gesendet werden. Bitte prüfe die Verbindung und tippe noch einmal.");
+      setFehler("Die Antworten konnten nicht gesendet werden. Bitte prüfe die Verbindung und tippe noch einmal.");
     } finally {
       setSendet(false);
     }
@@ -80,7 +92,8 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
       const a = await unterweisungUnterschreiben(versuch.id, pfad);
       if (!a.ok) return setFehler(a.fehler);
       setGueltigBis(a.gueltigBis);
-      gehe("fertig");
+      setSchritt("fertig");
+      oben();
     } catch {
       setFehler("Die Unterschrift konnte nicht gesendet werden. Bitte prüfe die Verbindung und tippe noch einmal.");
     } finally {
@@ -94,80 +107,114 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
     </p>
   );
 
-  if (schritt === "lesen") {
+  if (schritt === "start") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-5">
-        <p className="text-gray-700">Lies alles in Ruhe durch. Danach kommt ein kurzer Test mit {fragen.length} Fragen.</p>
-        {abschnitte.map((a) => (
-          <section key={a.titel} className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
-            <h2 className="font-titel text-lg font-semibold text-marke-blau">{a.titel}</h2>
-            <ul className="flex flex-col gap-2">
-              {a.punkte.map((p) => (
-                <li key={p} className="flex gap-2">
-                  <span aria-hidden className="mt-2 h-2 w-2 shrink-0 rounded-full bg-marke-gelb" />
-                  <span>{p}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-        <button type="button" onClick={testStarten} className={gelb} disabled={fragen.length === 0}>
-          Gelesen – weiter zum Test
+        <section className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="font-titel text-xl font-semibold">So geht&apos;s</h2>
+          <ul className="flex flex-col gap-2">
+            <li>📖 {abschnitte.length} kurze Abschnitte mit Bild</li>
+            <li>❓ Nach jedem Abschnitt eine Frage</li>
+            <li>
+              ✅ Mindestens {noetig(fragen.length)} von {fragen.length} richtig ({BESTEHEN_PROZENT} %)
+            </li>
+            <li>✍️ Zum Schluss unterschreiben</li>
+          </ul>
+          <p className="text-sm text-gray-600">Dauer etwa {dauer} Minuten.</p>
+        </section>
+        <button type="button" onClick={starten} className={gelb} disabled={ablauf.length === 0}>
+          Los geht&apos;s
         </button>
       </div>
     );
   }
 
-  if (schritt === "test" && versuch) {
+  if (schritt === "lernen" && versuch) {
+    const s = ablauf[seite];
+    const letzte = seite === ablauf.length - 1;
+    const fortschritt = (
+      <div className="flex flex-col gap-1">
+        <div className="h-2 overflow-hidden rounded-full bg-gray-200" aria-hidden>
+          <div className="h-full bg-marke-blau transition-all" style={{ width: `${((seite + 1) / ablauf.length) * 100}%` }} />
+        </div>
+        <p className="text-sm text-gray-600">
+          {s.art === "abschnitt" ? `Abschnitt ${s.i + 1} von ${abschnitte.length}` : `Frage ${s.i + 1} von ${fragen.length}`}
+        </p>
+      </div>
+    );
+    const zurueck = seite > 0 && (
+      <button type="button" onClick={() => zu(seite - 1)} className="h-12 px-3 font-semibold text-marke-blau underline">
+        Zurück
+      </button>
+    );
+
+    if (s.art === "abschnitt") {
+      const a = abschnitte[s.i];
+      return (
+        <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-5">
+          {fortschritt}
+          <section className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm">
+            <Bild name={a.bild} titel={a.titel} />
+            <h2 className="font-titel text-xl font-semibold text-marke-blau">{a.titel}</h2>
+            {a.text && <p className="text-lg leading-relaxed">{a.text}</p>}
+            {a.punkte && a.punkte.length > 0 && (
+              <ul className="flex flex-col gap-2">
+                {a.punkte.map((p) => (
+                  <li key={p} className="flex gap-2 text-lg">
+                    <span aria-hidden className="mt-2.5 h-2 w-2 shrink-0 rounded-full bg-marke-gelb" />
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <div className="flex items-center gap-2">
+            {zurueck}
+            <button type="button" onClick={() => (letzte ? auswerten() : zu(seite + 1))} className={gelb} disabled={sendet}>
+              Weiter
+            </button>
+          </div>
+          {fehlerZeile}
+        </div>
+      );
+    }
+
+    const f = fragen[s.i];
+    const beantwortet = antworten[f.id] !== undefined;
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-5">
-        <div className="flex flex-col gap-2">
-          <p className="text-gray-700">
-            Mindestens {noetig(fragen.length)} von {fragen.length} Antworten müssen richtig sein ({BESTEHEN_PROZENT} %).
-          </p>
-          <div className="h-2 overflow-hidden rounded-full bg-gray-200" aria-hidden>
-            <div className="h-full bg-marke-blau transition-all" style={{ width: `${(beantwortet / Math.max(1, fragen.length)) * 100}%` }} />
+        {fortschritt}
+        <section className="flex flex-col gap-4 rounded-2xl border-2 border-marke-gelb bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold tracking-wide text-warnung uppercase">Frage {s.i + 1}</p>
+          <h2 className="text-lg font-semibold">{f.frage}</h2>
+          <div role="radiogroup" aria-label={f.frage} className="flex flex-col gap-2">
+            {versuch.reihenfolge[f.id].map((i) => {
+              const gewaehlt = antworten[f.id] === i;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  role="radio"
+                  aria-checked={gewaehlt}
+                  onClick={() => setAntworten((a) => ({ ...a, [f.id]: i }))}
+                  className={`flex min-h-14 items-center gap-3 rounded-xl border-2 px-3 py-2 text-left ${gewaehlt ? "border-marke-blau bg-marke-blau/10 font-semibold" : "border-gray-300 bg-white"}`}
+                >
+                  <span aria-hidden className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${gewaehlt ? "border-marke-blau" : "border-gray-400"}`}>
+                    {gewaehlt && <span className="h-3 w-3 rounded-full bg-marke-blau" />}
+                  </span>
+                  {f.antworten[i]}
+                </button>
+              );
+            })}
           </div>
-          <p className="text-sm text-gray-600">
-            {beantwortet} von {fragen.length} beantwortet
-          </p>
+        </section>
+        <div className="flex items-center gap-2">
+          {zurueck}
+          <button type="button" onClick={() => (letzte ? auswerten() : zu(seite + 1))} className={gelb} disabled={!beantwortet || sendet}>
+            {!beantwortet ? "Bitte eine Antwort wählen" : letzte ? (sendet ? "Wird ausgewertet …" : "Auswerten") : "Weiter"}
+          </button>
         </div>
-        <ol className="flex flex-col gap-3">
-          {fragen.map((f, n) => (
-            <li key={f.id} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
-              <p className="font-semibold">
-                <span className="text-marke-blau">{n + 1}.</span> {f.frage}
-              </p>
-              <div role="radiogroup" aria-label={f.frage} className="flex flex-col gap-2">
-                {versuch.reihenfolge[f.id].map((i) => {
-                  const gewaehlt = antworten[f.id] === i;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      role="radio"
-                      aria-checked={gewaehlt}
-                      onClick={() => setAntworten((a) => ({ ...a, [f.id]: i }))}
-                      className={`flex min-h-12 items-center gap-3 rounded-xl border-2 px-3 py-2 text-left ${gewaehlt ? "border-marke-blau bg-marke-blau/10 font-semibold" : "border-gray-300 bg-white"}`}
-                    >
-                      <span
-                        aria-hidden
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${gewaehlt ? "border-marke-blau" : "border-gray-400"}`}
-                      >
-                        {gewaehlt && <span className="h-2.5 w-2.5 rounded-full bg-marke-blau" />}
-                      </span>
-                      {f.antworten[i]}
-                    </button>
-                  );
-                })}
-              </div>
-            </li>
-          ))}
-        </ol>
         {fehlerZeile}
-        <button type="button" onClick={auswerten} className={gelb} disabled={sendet || beantwortet < fragen.length}>
-          {sendet ? "Wird ausgewertet …" : beantwortet < fragen.length ? `Noch ${fragen.length - beantwortet} offen` : "Test auswerten"}
-        </button>
       </div>
     );
   }
@@ -195,9 +242,7 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
         {ergebnis.bestanden ? (
           <section className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="font-titel text-lg font-semibold">Unterschrift</h2>
-            <p>
-              Ich wurde zu „{titel}“ unterwiesen, habe die Inhalte verstanden und werde sie einhalten.
-            </p>
+            <p>Ich wurde zu „{titel}“ unterwiesen, habe die Inhalte verstanden und werde sie einhalten.</p>
             <Unterschrift onChange={setUnterschrift} />
             {fehlerZeile}
             <button type="button" onClick={unterschreiben} className={gelb} disabled={sendet || !unterschrift}>
@@ -206,15 +251,13 @@ export function UnterweisungAblauf({ firmaId, schluessel, titel, abschnitte, fra
           </section>
         ) : (
           <>
-            <p className="text-gray-700">
-              Du brauchst mindestens {noetig(ergebnis.gesamt)} richtige Antworten. Lies die Unterweisung noch einmal und versuche es erneut.
-            </p>
-            <button type="button" onClick={() => gehe("lesen")} className={gelb}>
-              Noch einmal lesen
+            <p className="text-gray-700">Du brauchst mindestens {noetig(ergebnis.gesamt)} richtige Antworten. Geh die Abschnitte noch einmal durch.</p>
+            <button type="button" onClick={starten} className={gelb}>
+              Noch einmal von vorn
             </button>
-            <button type="button" onClick={testStarten} className={rahmen}>
-              Test sofort wiederholen
-            </button>
+            <Link href="/fahrer/unterweisungen" className={rahmen}>
+              Später weitermachen
+            </Link>
           </>
         )}
       </div>

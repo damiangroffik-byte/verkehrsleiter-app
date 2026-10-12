@@ -5,7 +5,8 @@ export const BESTEHEN_PROZENT = 80;
 // So viele Tage vor Ablauf wird die Unterweisung als „bald fällig“ angezeigt.
 export const VORWARNUNG_TAGE = 30;
 
-export type Abschnitt = { titel: string; punkte: string[] };
+// Ein kurzer Abschnitt mit Bild; nach Abschnitt n kommt Frage n.
+export type Abschnitt = { titel: string; text?: string; punkte?: string[]; bild?: string };
 
 export type Unterweisung = {
   schluessel: string;
@@ -68,4 +69,17 @@ export function mischen(anzahl: number, zufall: () => number = Math.random) {
 // Wie viele richtige Antworten zum Bestehen nötig sind.
 export function noetig(gesamt: number) {
   return Math.ceil((gesamt * BESTEHEN_PROZENT) / 100);
+}
+
+export type Seite = { art: "abschnitt" | "frage"; i: number };
+
+// Reihenfolge im Ablauf: Abschnitt 1, Frage 1, Abschnitt 2, Frage 2, …
+// Gibt es mehr Fragen als Abschnitte (oder umgekehrt), kommen die übrigen am Ende.
+export function seiten(abschnitte: number, fragen: number): Seite[] {
+  const r: Seite[] = [];
+  for (let i = 0; i < Math.max(abschnitte, fragen); i++) {
+    if (i < abschnitte) r.push({ art: "abschnitt", i });
+    if (i < fragen) r.push({ art: "frage", i });
+  }
+  return r;
 }
