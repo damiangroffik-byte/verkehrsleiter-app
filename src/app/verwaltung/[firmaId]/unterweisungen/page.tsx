@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Kopfleiste } from "@/components/Kopfleiste";
 import { PdfKnopf } from "@/components/PdfKnopf";
@@ -115,6 +116,12 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
               <li>Gültig für ein Jahr. 30 Tage vorher wird er als „bald fällig“ angezeigt.</li>
               <li>Zu jeder Unterweisung gibt es einen Nachweis als PDF.</li>
             </ul>
+          </Karte>
+          <Karte titel="Allgemeine Informationen">
+            <p className="text-sm text-gray-600">Ersthelfer, Verbandkästen, Feuerlöscher, Sammelpunkt und Ansprechpartner. Die Fahrer lesen sie ohne Test.</p>
+            <Link href={`/verwaltung/${firmaId}/einstellungen#infos`} className="flex h-12 items-center justify-center rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+              {darfAendern ? "Informationen eintragen" : "Informationen ansehen"}
+            </Link>
           </Karte>
           <Karte titel="Blöcke für diese Firma">
             <p className="text-sm text-gray-600">

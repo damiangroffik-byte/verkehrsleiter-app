@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { INFO_FELDER, infosBereinigen } from "@/lib/unterweisung/infos";
 
 export async function fuehrerscheinEinstellen(firmaId: string, formData: FormData) {
   const intervall = Number(formData.get("intervall"));
@@ -25,4 +26,19 @@ export async function fuehrerscheinEinstellen(firmaId: string, formData: FormDat
   revalidatePath(`/verwaltung/${firmaId}`, "layout");
   revalidatePath("/fahrer", "layout");
   redirect(`${ziel}?gespeichert=1`);
+}
+
+export async function infosSpeichern(firmaId: string, formData: FormData) {
+  const roh = Object.fromEntries(INFO_FELDER.map((f) => [f.schluessel, formData.getAll(f.schluessel)]));
+  const ziel = `/verwaltung/${firmaId}/einstellungen`;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("firma_infos")
+    .upsert({ firma_id: firmaId, angaben: infosBereinigen(roh), geaendert_am: new Date().toISOString() })
+    .select("firma_id");
+  if (error || !data?.length) {
+    redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt. Nur der Verkehrsleiter kann die Informationen ändern.")}#infos`);
+  }
+  revalidatePath("/fahrer", "layout");
+  redirect(`${ziel}?gespeichert=1#infos`);
 }
