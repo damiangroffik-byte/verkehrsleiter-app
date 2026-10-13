@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const OEFFENTLICH = ["/login", "/auth"];
+// /api/cron schützt sich selbst mit CRON_SECRET.
+const OEFFENTLICH = ["/login", "/auth", "/api/cron"];
 
 // Erneuert die Supabase-Sitzung bei jeder Anfrage und schickt nicht
 // angemeldete Nutzer zur Anmeldung.

@@ -7,6 +7,9 @@ import { holeNutzer, jetzt } from "@/lib/daten";
 import { einreichenNoetig, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein/regeln";
 import { blockStatus } from "@/lib/unterweisung/regeln";
 import { unterweisungenLaden } from "./unterweisungen/daten";
+import { pruefungenLaden } from "./pruefungen/daten";
+import { datumVon, geltendeArten, stufe as fristStufe } from "@/lib/fahrzeugfristen";
+import { tag } from "@/lib/fuehrerschein/regeln";
 
 type FahrerDaten = {
   id: string;
@@ -22,7 +25,7 @@ type LetzteKontrolle = {
 
 export default async function FahrerStart() {
   const { supabase, user } = await holeNutzer();
-  const [{ data }, { data: kontrollen }, unterweisungen] = await Promise.all([
+  const [{ data }, { data: kontrollen }, unterweisungen, fahrzeugFristen] = await Promise.all([
     supabase
       .from("fahrer")
       .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
@@ -37,7 +40,13 @@ export default async function FahrerStart() {
       .limit(1)
       .returns<LetzteKontrolle[]>(),
     unterweisungenLaden(supabase, user.id),
+    pruefungenLaden(supabase, user.id),
   ]);
+  const heuteTag = tag(new Date(jetzt()));
+  const fristenOffen = (fahrzeugFristen?.fahrzeuge ?? []).reduce(
+    (n, f) => n + geltendeArten(f).filter((a) => ["fehlt", "rot"].includes(fristStufe(datumVon(f, a), heuteTag, fahrzeugFristen!.vorwarnung(a)))).length,
+    0,
+  );
   const ich = data?.[0];
   const { data: pruefungen } = ich
     ? await supabase
@@ -109,6 +118,20 @@ export default async function FahrerStart() {
             {einreichenNoetig(fs) ? "Führerschein fotografieren" : "Führerschein ansehen"}
           </Link>
         </Karte>
+        {fahrzeugFristen && fahrzeugFristen.fahrzeuge.length > 0 && (
+          <Karte titel="Prüftermine der Fahrzeuge">
+            <StatusZeile
+              stufe={fristenOffen > 0 ? "rot" : "ok"}
+              text={fristenOffen === 0 ? "Alle Prüftermine erfasst" : fristenOffen === 1 ? "1 Prüftermin fehlt oder ist abgelaufen" : `${fristenOffen} Prüftermine fehlen oder sind abgelaufen`}
+            />
+            <Link
+              href="/fahrer/pruefungen"
+              className={`flex h-12 items-center justify-center rounded-xl font-semibold ${fristenOffen > 0 ? "bg-marke-gelb text-marke-blau" : "border-2 border-marke-blau text-marke-blau"}`}
+            >
+              {fristenOffen > 0 ? "Plaketten fotografieren" : "Prüftermine ansehen"}
+            </Link>
+          </Karte>
+        )}
         {unterweisungen && (
           <Karte titel="Unterweisungen">
             <StatusZeile

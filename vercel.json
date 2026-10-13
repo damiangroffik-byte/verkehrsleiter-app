@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "regions": [
     "fra1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/fristen",
+      "schedule": "0 5 * * *"
+    }
   ]
 }

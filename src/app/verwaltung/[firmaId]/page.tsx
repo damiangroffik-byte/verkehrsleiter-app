@@ -45,7 +45,7 @@ export default async function Uebersicht({ params }: PageProps<"/verwaltung/[fir
       .returns<Fahrer[]>(),
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, hu_faellig, sp_faellig, tacho_faellig, ladebordwand_uvv_bis, ameise_uvv_bis")
+      .select("id, kennzeichen, hu_faellig, sp_faellig, tacho_faellig, feuerloescher_bis, ladebordwand_uvv_bis, ameise_uvv_bis")
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
       .returns<FristFahrzeug[]>(),
