@@ -31,10 +31,14 @@ export async function fuehrerscheinEinstellen(firmaId: string, formData: FormDat
 export async function infosSpeichern(firmaId: string, formData: FormData) {
   const roh = Object.fromEntries(INFO_FELDER.map((f) => [f.schluessel, formData.getAll(f.schluessel)]));
   const ziel = `/verwaltung/${firmaId}/einstellungen`;
+  const angaben = infosBereinigen(roh);
   const supabase = await createClient();
+  // Nur bei echter Änderung neuer Stand, sonst müssten alle Fahrer unnötig neu bestätigen.
+  const { data: alt } = await supabase.from("firma_infos").select("angaben").eq("firma_id", firmaId).maybeSingle();
+  if (alt && JSON.stringify(infosBereinigen(alt.angaben ?? {})) === JSON.stringify(angaben)) redirect(`${ziel}?gespeichert=1#infos`);
   const { data, error } = await supabase
     .from("firma_infos")
-    .upsert({ firma_id: firmaId, angaben: infosBereinigen(roh), geaendert_am: new Date().toISOString() })
+    .upsert({ firma_id: firmaId, angaben, geaendert_am: new Date().toISOString() })
     .select("firma_id");
   if (error || !data?.length) {
     redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt. Nur der Verkehrsleiter kann die Informationen ändern.")}#infos`);

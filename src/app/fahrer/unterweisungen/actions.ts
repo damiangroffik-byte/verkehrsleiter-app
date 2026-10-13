@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuswertungEntwurf = {
@@ -40,4 +41,14 @@ export async function unterweisungUnterschreiben(
   revalidatePath("/fahrer", "layout");
   revalidatePath("/verwaltung", "layout");
   return { ok: true, gueltigBis: (data as { gueltig_bis: string }).gueltig_bis };
+}
+
+// Fahrer bestätigt, dass er die allgemeinen Informationen gelesen hat.
+export async function infosBestaetigen(firmaId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("firma_infos_bestaetigen", { f: firmaId });
+  if (error) redirect(`/fahrer/unterweisungen/infos?fehler=${encodeURIComponent(fehlertext(error, "Bestätigen hat nicht geklappt. Bitte versuche es noch einmal."))}`);
+  revalidatePath("/fahrer", "layout");
+  revalidatePath(`/verwaltung/${firmaId}/unterweisungen`);
+  redirect("/fahrer/unterweisungen/infos?bestaetigt=1");
 }

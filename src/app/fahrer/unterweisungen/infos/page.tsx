@@ -2,9 +2,11 @@ import { Kopfleiste } from "@/components/Kopfleiste";
 import { Karte } from "@/components/ui";
 import { holeNutzer } from "@/lib/daten";
 import { INFO_FELDER, telefonTeile } from "@/lib/unterweisung/infos";
+import { infosBestaetigen } from "../actions";
 import { unterweisungenLaden } from "../daten";
 
-export default async function InfosSeite() {
+export default async function InfosSeite({ searchParams }: PageProps<"/fahrer/unterweisungen/infos">) {
+  const { fehler } = await searchParams;
   const { supabase, user } = await holeNutzer();
   const daten = await unterweisungenLaden(supabase, user.id);
   const felder = INFO_FELDER.filter((f) => daten?.infos[f.schluessel]);
@@ -39,6 +41,29 @@ export default async function InfosSeite() {
             </ul>
           </Karte>
         ))}
+        {typeof fehler === "string" && (
+          <p role="alert" className="rounded-xl border-2 border-mangel bg-white p-3 font-semibold text-mangel">
+            {fehler}
+          </p>
+        )}
+        {daten && felder.length > 0 &&
+          (daten.infosBestaetigt ? (
+            <p role="status" className="rounded-xl border-2 border-ok bg-white p-4 font-semibold text-ok">
+              ✓ Gelesen und bestätigt am{" "}
+              {new Date(daten.infosBestaetigt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })} Uhr
+            </p>
+          ) : (
+            <form action={infosBestaetigen.bind(null, daten.fahrer.firma_id)} className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
+              <label className="flex min-h-11 items-start gap-3 text-base">
+                <input type="checkbox" name="gelesen" required className="mt-0.5 h-6 w-6 shrink-0" />
+                Ich habe die Informationen gelesen und weiß, wen ich im Notfall anspreche und wo Verbandkasten, Feuerlöscher und Sammelpunkt
+                sind.
+              </label>
+              <button type="submit" className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+                Gelesen – bestätigen
+              </button>
+            </form>
+          ))}
       </div>
     </main>
   );
