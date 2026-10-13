@@ -10,7 +10,17 @@ import { fuehrerscheinAuslesen, fuehrerscheinEinreichen } from "./actions";
 
 export type Vorlage = { klassen: string[]; gueltigBis: string; code95Bis: string | null };
 
-export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: string; wartet: boolean; vorlage: Vorlage | null }) {
+export function FuehrerscheinFormular({
+  firmaId,
+  wartet,
+  vorlage,
+  onFertig,
+}: {
+  firmaId: string;
+  wartet: boolean;
+  vorlage: Vorlage | null;
+  onFertig?: () => void;
+}) {
   const [pruefungId] = useState(() => crypto.randomUUID());
   const [vorne, setVorne] = useState<string[]>([]);
   const [hinten, setHinten] = useState<string[]>([]);
@@ -91,7 +101,10 @@ export function FuehrerscheinFormular({ firmaId, wartet, vorlage }: { firmaId: s
       code95Bis,
     });
     setSendet(false);
-    if (erg.ok) setFertig(true);
+    if (erg.ok) {
+      setFertig(true);
+      onFertig?.();
+    }
     else setFehler(erg.fehler);
   }
 

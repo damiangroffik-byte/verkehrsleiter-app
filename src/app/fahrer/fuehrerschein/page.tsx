@@ -5,8 +5,12 @@ import { holeNutzer, jetzt } from "@/lib/daten";
 import { datumDe, fuehrerscheinStatus, type Pruefung } from "@/lib/fuehrerschein/regeln";
 import { FuehrerscheinFormular } from "./FuehrerscheinFormular";
 import { StatusZeile } from "@/components/StatusZeile";
+import { NachweisErfassen } from "@/components/NachweisErfassen";
+import { NACHWEISE, nachweisDatum, type NachweisFahrer } from "@/lib/fahrerNachweise";
+import { stufe } from "@/lib/fahrzeugfristen";
+import { tag } from "@/lib/fuehrerschein/regeln";
 
-type EigenerFahrer = {
+type EigenerFahrer = NachweisFahrer & {
   id: string;
   firma_id: string;
   firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number; fuehrerschein_vorwarnung_tage: number } | null } | null;
@@ -18,7 +22,7 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
 
   const { data: ich } = await supabase
     .from("fahrer")
-    .select("id, firma_id, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
+    .select("id, firma_id, fqn_gueltig_bis, fahrerkarte_gueltig_bis, adr_gueltig_bis, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
     .eq("user_id", user.id)
     .eq("aktiv", true)
     .returns<EigenerFahrer[]>();
@@ -53,6 +57,8 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
     aktuell.firmen?.firma_einstellungen?.fuehrerschein_vorwarnung_tage,
   );
   const letzte = status.offen ?? status.bestaetigt;
+  const heuteTag = tag(new Date(jetzt()));
+  const vorwarnung = aktuell.firmen?.firma_einstellungen?.fuehrerschein_vorwarnung_tage ?? 30;
 
   return (
     <Rahmen untertitel={aktuell.firmen?.name}>
@@ -93,6 +99,15 @@ export default async function FuehrerscheinSeite({ searchParams }: PageProps<"/f
             : null
         }
       />
+      <Karte titel="Weitere Nachweise">
+        <p className="text-sm text-gray-600">Mach einmal ein Foto. Die App liest das Ablaufdatum und merkt es sich.</p>
+        <ul className="flex flex-col gap-2">
+          {NACHWEISE.map((a) => {
+            const d = nachweisDatum(aktuell, a, status.bestaetigt?.code95_bis ?? null);
+            return <NachweisErfassen key={a} firmaId={aktuell.firma_id} fahrerId={aktuell.id} art={a} datum={d} stufe={stufe(d, heuteTag, vorwarnung)} />;
+          })}
+        </ul>
+      </Karte>
     </Rahmen>
   );
 }

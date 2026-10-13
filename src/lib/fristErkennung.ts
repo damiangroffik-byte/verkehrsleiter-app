@@ -50,6 +50,11 @@ export function zuDatum(roh: unknown): string | null {
 }
 
 export async function fristLesen(art: Art, bild: Uint8Array): Promise<string | null> {
+  return datumLesen(`${HINWEIS[art]}\n\nPrüfung: ${ART_INFO[art].titel}.`, bild);
+}
+
+// Datum nach einer Beschreibung (was gesucht ist, welche Fotos möglich sind) vom Foto lesen.
+export async function datumLesen(hinweis: string, bild: Uint8Array): Promise<string | null> {
   const client = new Anthropic({ timeout: 60_000, maxRetries: 1 });
   const antwort = await client.beta.messages.create({
     model: "claude-opus-5-5",
@@ -64,7 +69,7 @@ export async function fristLesen(art: Art, bild: Uint8Array): Promise<string | n
           { type: "image", source: { type: "base64", media_type: "image/jpeg", data: Buffer.from(bild).toString("base64") } },
           {
             type: "text",
-            text: `${HINWEIS[art]}\n\nPrüfung: ${ART_INFO[art].titel}. Gib Jahr, Monat und, falls angegeben, den Tag der nächsten Fälligkeit zurück. Rate nicht: Was du nicht sicher lesen kannst, setzt du auf null bzw. lesbar=false.`,
+            text: `${hinweis} Gib Jahr, Monat und, falls angegeben, den Tag zurück. Rate nicht: Was du nicht sicher lesen kannst, setzt du auf null bzw. lesbar=false.`,
           },
         ],
       },
