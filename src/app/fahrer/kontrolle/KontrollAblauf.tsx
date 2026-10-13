@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { FristErfassen } from "@/components/FristErfassen";
+import { NachweisErfassen } from "@/components/NachweisErfassen";
+import { FuehrerscheinFormular } from "@/app/fahrer/fuehrerschein/FuehrerscheinFormular";
+import { NACHWEISE, NACHWEIS_INFO, nachweisDatum, type Nachweis, type NachweisFahrer } from "@/lib/fahrerNachweise";
 import { Karte } from "@/components/ui";
 import { datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
 import { tag } from "@/lib/fuehrerschein/regeln";
@@ -36,6 +39,11 @@ export function KontrollAblauf({
   pruefpunkte,
   standardArtId,
   reifenZuletzt,
+  fahrerId,
+  nachweise,
+  fuehrerscheinDa,
+  code95Bis,
+  nachweisVorwarnung,
   vorwarnung,
   heute,
   winter,
@@ -47,6 +55,11 @@ export function KontrollAblauf({
   pruefpunkte: KontrollPruefpunkt[];
   standardArtId: string | null;
   reifenZuletzt: Record<string, string>;
+  fahrerId: string;
+  nachweise: NachweisFahrer;
+  fuehrerscheinDa: boolean;
+  code95Bis: string | null;
+  nachweisVorwarnung: number;
   vorwarnung: Partial<Record<Art, number>>;
   heute: number;
   winter: boolean;
@@ -77,6 +90,8 @@ export function KontrollAblauf({
   const [ergebnis, setErgebnis] = useState<{ mitMangel: boolean; freigegeben: boolean } | null>(null);
   // In dieser Kontrolle per Foto erfasste Termine („fahrzeugId:art“ → Datum), bis die Seite neu geladen ist.
   const [erfasst, setErfasst] = useState<Record<string, string>>({});
+  const [nachweisErfasst, setNachweisErfasst] = useState<Partial<Record<Nachweis, string>>>({});
+  const [fsDa, setFsDa] = useState(fuehrerscheinDa);
 
   const ordner = `${firmaId}/${kontrolleId}`;
   const fz = aufloesen(wahl, eingabe, fahrzeuge, anhaenger, "ein Fahrzeug");
@@ -95,8 +110,14 @@ export function KontrollAblauf({
   const fristDatum = (f: FristFahrzeug, a: Art) => erfasst[`${f.id}:${a}`] ?? datumVon(f, a);
   const fristStufe = (f: FristFahrzeug, a: Art) => stufe(fristDatum(f, a), heuteTag, vorwarnung[a] ?? standardRegel(a).vorwarnung_tage);
   const fristen = fristFahrzeuge.flatMap((f) => geltendeArten(f).map((a) => ({ f, a, stufe: fristStufe(f, a) })));
-  const fristenFehlen = fristen.filter((x) => x.stufe === "fehlt").length;
-  const fristenOffen = fristen.filter((x) => x.stufe === "fehlt" || x.stufe === "rot").length;
+  // Eigene Nachweise: Führerschein-Foto, Code 95/FQN und Fahrerkarte sind Pflicht, ADR freiwillig.
+  const nachweisListe = NACHWEISE.map((a) => {
+    const d = nachweisErfasst[a] ?? nachweisDatum(nachweise, a, code95Bis);
+    const s = !NACHWEIS_INFO[a].pflicht && !d ? "ok" : stufe(d, heuteTag, nachweisVorwarnung);
+    return { a, datum: d, stufe: s };
+  });
+  const fristenFehlen = fristen.filter((x) => x.stufe === "fehlt").length + nachweisListe.filter((x) => x.stufe === "fehlt").length + (fsDa ? 0 : 1);
+  const fristenOffen = fristenFehlen + fristen.filter((x) => x.stufe === "rot").length + nachweisListe.filter((x) => x.stufe === "rot").length;
 
   function fristGespeichert(f: FristFahrzeug, a: Art, datum: string) {
     setErfasst((e) => ({ ...e, [`${f.id}:${a}`]: datum }));
@@ -187,10 +208,11 @@ export function KontrollAblauf({
   }
 
   function termineFehler(): string | null {
+    if (!fsDa) return "Bitte fotografiere deinen Führerschein (Vorder- und Rückseite) und tippe auf „Zur Prüfung senden“.";
     if (fristenFehlen === 0) return null;
     return fristenFehlen === 1
-      ? "Ein Prüftermin fehlt noch. Bitte mach ein Foto der Plakette oder trage das Datum ein und tippe auf Speichern."
-      : `${fristenFehlen} Prüftermine fehlen noch. Bitte mach Fotos der Plaketten oder trage die Daten ein und tippe jeweils auf Speichern.`;
+      ? "Eine Angabe fehlt noch. Bitte mach ein Foto oder trage das Datum ein und tippe auf Speichern."
+      : `${fristenFehlen} Angaben fehlen noch. Bitte mach Fotos oder trage die Daten ein und tippe jeweils auf Speichern.`;
   }
 
   // UVV-Prüfplakette fehlt?
@@ -390,23 +412,21 @@ export function KontrollAblauf({
               />
             </Karte>
 
-            <Karte titel="Prüftermine">
-              {fristFahrzeuge.length > 0 && (
-                <div className="flex items-center justify-between gap-3">
-                  <p className={`text-sm ${fristenOffen > 0 ? "font-semibold text-mangel" : "text-ok"}`}>
-                    {fristenFehlen > 0
-                      ? `${fristenFehlen === 1 ? "1 Termin fehlt" : `${fristenFehlen} Termine fehlen`} – im nächsten Schritt einmal die Plaketten fotografieren.`
-                      : fristenOffen > 0
-                        ? "Ein Termin ist abgelaufen – bitte im nächsten Schritt prüfen."
-                        : "✓ Alle Prüftermine sind gespeichert."}
-                  </p>
-                  {fristenOffen === 0 && (
-                    <button type="button" onClick={() => gehe("termine")} className="min-h-11 shrink-0 px-2 text-sm font-semibold text-marke-blau underline">
-                      Ansehen
-                    </button>
-                  )}
-                </div>
-              )}
+            <Karte titel="Prüftermine & Nachweise">
+              <div className="flex items-center justify-between gap-3">
+                <p className={`text-sm ${fristenOffen > 0 ? "font-semibold text-mangel" : "text-ok"}`}>
+                  {fristenFehlen > 0
+                    ? `${fristenFehlen === 1 ? "1 Angabe fehlt" : `${fristenFehlen} Angaben fehlen`} – im nächsten Schritt einmal fotografieren.`
+                    : fristenOffen > 0
+                      ? "Etwas ist abgelaufen – bitte im nächsten Schritt prüfen."
+                      : "✓ Alle Prüftermine und Nachweise sind gespeichert."}
+                </p>
+                {fristenOffen === 0 && (
+                  <button type="button" onClick={() => gehe("termine")} className="min-h-11 shrink-0 px-2 text-sm font-semibold text-marke-blau underline">
+                    Ansehen
+                  </button>
+                )}
+              </div>
               {!fahrzeug && (
                 <>
                   <p className="text-sm text-gray-600">Bitte trage die Termine für {fz.kennzeichen} ein.</p>
@@ -442,13 +462,35 @@ export function KontrollAblauf({
       <div className="flex flex-col gap-4">
         {fehlerZeile}
         <div className="flex flex-col gap-1">
-          <h2 className="font-titel text-lg font-semibold">PRÜFTERMINE</h2>
+          <h2 className="font-titel text-lg font-semibold">PRÜFTERMINE & NACHWEISE</h2>
           <p className="text-gray-700">
             {fristenFehlen > 0
-              ? "Mach einmal ein Foto von jeder Plakette. Die App liest das Datum und merkt es sich. Beim nächsten Mal wird dieser Schritt übersprungen."
-              : "Alle Termine sind gespeichert. Hast du eine neue Plakette, tippe auf „Neu erfassen“."}
+              ? "Mach einmal ein Foto von jeder Plakette und deinen Papieren. Die App liest das Datum und merkt es sich. Beim nächsten Mal wird dieser Schritt übersprungen."
+              : "Alles ist gespeichert. Hast du etwas Neues bekommen, tippe auf „Neu erfassen“."}
           </p>
         </div>
+        {!fsDa && (
+          <>
+            <p className="rounded-xl border-2 border-mangel bg-white p-3 font-semibold text-mangel">Dein Führerschein ist noch nicht fotografiert. Das ist Pflicht.</p>
+            <FuehrerscheinFormular firmaId={firmaId} wartet={false} vorlage={null} onFertig={() => setFsDa(true)} />
+          </>
+        )}
+        <Karte titel="Deine Papiere">
+          {fsDa && <p className="text-sm text-ok">✓ Führerschein ist fotografiert.</p>}
+          <ul className="flex flex-col gap-2">
+            {nachweisListe.map(({ a, datum, stufe: s }) => (
+              <NachweisErfassen
+                key={a}
+                firmaId={firmaId}
+                fahrerId={fahrerId}
+                art={a}
+                datum={datum}
+                stufe={s}
+                onGespeichert={(d) => setNachweisErfasst((n) => ({ ...n, [a]: d }))}
+              />
+            ))}
+          </ul>
+        </Karte>
         {fristFahrzeuge.map((f) => (
           <Karte key={f.id} titel={`${f.kennzeichen}${f.ist_anhaenger ? " (Anhänger)" : ""}`}>
             <ul className="flex flex-col gap-2">
