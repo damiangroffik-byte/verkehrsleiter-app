@@ -17,6 +17,7 @@ type Fahrer = {
   telefon: string | null;
   user_id: string | null;
   geburtsdatum: string | null;
+  geburtstag_gruss: boolean;
   fqn_gueltig_bis: string | null;
   adr_gueltig_bis: string | null;
   fahrerkarte_gueltig_bis: string | null;
@@ -34,7 +35,7 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
   const [{ data: f }, { data: pruefungen }, { data: einstellung }, { data: bloecke }, { data: auswahl }, { data: zuordnung }] = await Promise.all([
     supabase
       .from("fahrer")
-      .select("id, vorname, nachname, email, telefon, user_id, geburtsdatum, fqn_gueltig_bis, adr_gueltig_bis, fahrerkarte_gueltig_bis")
+      .select("id, vorname, nachname, email, telefon, user_id, geburtsdatum, geburtstag_gruss, fqn_gueltig_bis, adr_gueltig_bis, fahrerkarte_gueltig_bis")
       .eq("id", fahrerId)
       .eq("firma_id", firmaId)
       .maybeSingle<Fahrer>(),
@@ -172,6 +173,18 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
             <Feld label="Vorname" name="vorname" defaultValue={f.vorname} required />
             <Feld label="Nachname" name="nachname" defaultValue={f.nachname} required />
             <Feld label="Geburtsdatum" name="geburtsdatum" type="date" defaultValue={f.geburtsdatum ?? ""} />
+            <label className="flex min-h-11 items-start gap-3 text-sm text-gray-700">
+              <input type="checkbox" name="geburtstag_gruss" defaultChecked={f.geburtstag_gruss} className="mt-0.5 h-6 w-6 shrink-0 accent-marke-blau" />
+              <span>
+                <span className="font-semibold text-marke-blau-dunkel">Geburtstag: Glückwunsch an {f.vorname} senden</span>
+                <br />
+                Du wirst vorher per E-Mail erinnert. Vorlauf und Text stellst du unter{" "}
+                <Link href={`/verwaltung/${firmaId}/einstellungen#geburtstag`} className="text-marke-blau underline">
+                  Einstellungen
+                </Link>{" "}
+                ein.
+              </span>
+            </label>
             <Feld label="Telefon" name="telefon" type="tel" defaultValue={f.telefon ?? ""} />
             <p className="text-sm text-gray-600">
               E-Mail für die Anmeldung: {f.email ?? "keine"} · {f.user_id ? "angemeldet" : "noch nicht angemeldet"}

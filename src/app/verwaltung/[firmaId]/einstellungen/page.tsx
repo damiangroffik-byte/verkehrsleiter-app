@@ -20,7 +20,7 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
   const darfAendern = firma.rolle === "verkehrsleiter";
 
   const [{ data: einstellung }, { data: infos }] = await Promise.all([
-    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_aktiv, geburtstag_vorlauf_tage, geburtstag_text").eq("firma_id", firmaId).maybeSingle(),
+    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_vorlauf_tage, geburtstag_text").eq("firma_id", firmaId).maybeSingle(),
     supabase.from("firma_infos").select("angaben").eq("firma_id", firmaId).maybeSingle(),
   ]);
   const angaben = infosBereinigen(infos?.angaben ?? {});
@@ -90,12 +90,8 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
         <div id="geburtstag" className="scroll-mt-4">
           <Karte titel="Geburtstage">
             <form action={geburtstagEinstellen.bind(null, firmaId)} className="flex flex-col gap-4">
-              <label className="flex min-h-11 items-center gap-3 font-semibold text-marke-blau-dunkel">
-                <input type="checkbox" name="aktiv" defaultChecked={einstellung?.geburtstag_aktiv ?? false} disabled={!darfAendern} className="h-6 w-6 accent-marke-blau" />
-                Ja, ich möchte Geburtstage nutzen
-              </label>
               <p className="text-sm text-gray-600">
-                Freiwillig. Ist der Haken gesetzt, bekommst du vorher eine E-Mail und siehst den Geburtstag in der Übersicht. Der Fahrer bekommt an seinem Geburtstag deinen Glückwunsch in der App und per E-Mail. Dafür muss beim Fahrer das Geburtsdatum eingetragen sein.
+                Eingeschaltet wird pro Fahrer: Fahrer öffnen, Geburtsdatum eintragen und den Haken bei „Geburtstag“ setzen. Dann bekommst du vorher eine E-Mail und siehst den Geburtstag in der Übersicht. Der Fahrer bekommt an seinem Geburtstag deinen Glückwunsch in der App und per E-Mail.
               </p>
               <label className="flex flex-col gap-1 text-sm text-gray-700">
                 Wann möchtest du informiert werden?
