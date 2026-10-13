@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/fristen",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/geburtstag",
+      "schedule": "0 6 * * *"
     }
   ]
 }

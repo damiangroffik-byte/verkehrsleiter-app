@@ -22,3 +22,22 @@ export function wirdAlt(geburtsdatum: string, heute: string) {
   const tage = tageBisGeburtstag(geburtsdatum, heute);
   return new Date(Date.parse(heute) + tage * 86_400_000).getUTCFullYear() - gj;
 }
+
+// Datum des nächsten Geburtstags (JJJJ-MM-TT, heute zählt mit).
+export function naechsterGeburtstag(geburtsdatum: string, heute: string) {
+  return new Date(Date.parse(heute) + tageBisGeburtstag(geburtsdatum, heute) * 86_400_000).toISOString().slice(0, 10);
+}
+
+export const STANDARD_VORLAUF = 14;
+export const GRUSS_PLATZHALTER = ["{vorname}", "{firma}"];
+export const STANDARD_GRUSS = `Hallo {vorname},
+
+alles Gute zum Geburtstag! Wir wünschen dir Gesundheit, viel Freude und allzeit gute Fahrt.
+
+Bei uns im Büro wartet eine kleine Überraschung auf dich.
+
+Dein Team von {firma}`;
+
+export function grussText(vorlage: string | null, w: { vorname: string; firma: string }) {
+  return (vorlage?.trim() || STANDARD_GRUSS).replaceAll("{vorname}", w.vorname).replaceAll("{firma}", w.firma);
+}
