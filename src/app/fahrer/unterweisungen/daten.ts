@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { infosBereinigen } from "@/lib/unterweisung/infos";
-import type { Teilnahme, Unterweisung } from "@/lib/unterweisung/regeln";
+import { blockAktiv, type Auswahl, type Teilnahme, type Unterweisung } from "@/lib/unterweisung/regeln";
 
 type EigenerFahrer = { id: string; firma_id: string; vorname: string; firmen: { name: string } | null };
 
-// Fahrer-Datensatz, aktive Blöcke der Firma, eigene Teilnahmen und allgemeine Informationen (RLS liefert nur die eigenen).
+// Fahrer-Datensatz, für ihn aktive Blöcke (eigene Zuordnung vor Firmen-Auswahl), eigene Teilnahmen und allgemeine Informationen (RLS liefert nur die eigenen).
 export async function unterweisungenLaden(supabase: SupabaseClient, userId: string) {
   const { data: ich } = await supabase
     .from("fahrer")
@@ -16,9 +16,10 @@ export async function unterweisungenLaden(supabase: SupabaseClient, userId: stri
   const fahrer = ich?.[0];
   if (!fahrer) return null;
 
-  const [{ data: bloecke }, { data: auswahl }, { data: teilnahmen }, { data: infos }, { data: bestaetigung }] = await Promise.all([
+  const [{ data: bloecke }, { data: auswahl }, { data: zuordnung }, { data: teilnahmen }, { data: infos }, { data: bestaetigung }] = await Promise.all([
     supabase.from("unterweisungen").select("schluessel, titel, kurz, symbol, dauer_min").order("reihenfolge").returns<Unterweisung[]>(),
-    supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", fahrer.firma_id).returns<{ unterweisung: string; aktiv: boolean }[]>(),
+    supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", fahrer.firma_id).returns<Auswahl[]>(),
+    supabase.from("fahrer_unterweisungen").select("unterweisung, aktiv").eq("fahrer_id", fahrer.id).returns<Auswahl[]>(),
     supabase
       .from("unterweisung_teilnahmen")
       .select("id, unterweisung, durchgefuehrt_am, prozent, bestanden, unterschrieben_am, gueltig_bis")
@@ -38,10 +39,9 @@ export async function unterweisungenLaden(supabase: SupabaseClient, userId: stri
   const letzte = bestaetigung?.[0];
   // Bestätigung gilt nur für den Stand, den der Fahrer gelesen hat.
   const infosBestaetigt = letzte && infos && Date.parse(letzte.stand) >= Date.parse(infos.geaendert_am) ? letzte.bestaetigt_am : null;
-  const aus = new Set((auswahl ?? []).filter((a) => !a.aktiv).map((a) => a.unterweisung));
   return {
     fahrer,
-    bloecke: (bloecke ?? []).filter((b) => !aus.has(b.schluessel)),
+    bloecke: (bloecke ?? []).filter((b) => blockAktiv(b.schluessel, auswahl ?? [], zuordnung ?? [])),
     teilnahmen: teilnahmen ?? [],
     infos: angaben,
     infosBestaetigt,

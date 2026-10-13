@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockStatus, mischen, noetig, seiten, type Teilnahme } from "./regeln";
+import { blockAktiv, blockStatus, mischen, noetig, seiten, type Teilnahme } from "./regeln";
 
 const t = (teil: Partial<Teilnahme>): Teilnahme => ({
   id: "x",
@@ -61,5 +61,18 @@ describe("seiten", () => {
 
   it("übrige Fragen am Ende", () => {
     expect(seiten(1, 3).map((s) => `${s.art[0]}${s.i}`)).toEqual(["a0", "f0", "f1", "f2"]);
+  });
+});
+
+describe("blockAktiv", () => {
+  it("ohne Einträge aktiv", () => {
+    expect(blockAktiv("tacho", [], [])).toBe(true);
+  });
+  it("Firmen-Auswahl gilt, wenn der Fahrer nichts Eigenes hat", () => {
+    expect(blockAktiv("gefahrgut", [{ unterweisung: "gefahrgut", aktiv: false }], [])).toBe(false);
+  });
+  it("Zuordnung beim Fahrer geht vor", () => {
+    expect(blockAktiv("gefahrgut", [{ unterweisung: "gefahrgut", aktiv: false }], [{ unterweisung: "gefahrgut", aktiv: true }])).toBe(true);
+    expect(blockAktiv("tacho", [], [{ unterweisung: "tacho", aktiv: false }])).toBe(false);
   });
 });

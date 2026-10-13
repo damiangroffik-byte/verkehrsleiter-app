@@ -6,7 +6,8 @@ import { Feld, Frist, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
 import { fuehrerscheinStatus, tag, type Pruefung } from "@/lib/fuehrerschein/regeln";
 import { tageBisGeburtstag, wirdAlt } from "@/lib/geburtstag";
-import { fahrerSpeichern } from "./actions";
+import { blockAktiv, type Auswahl, type Unterweisung } from "@/lib/unterweisung/regeln";
+import { fahrerSpeichern, fahrerUnterweisungSchalten } from "./actions";
 
 type Fahrer = {
   id: string;
@@ -30,7 +31,7 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
   if (!firma) notFound();
   const heute = jetzt();
 
-  const [{ data: f }, { data: pruefungen }, { data: einstellung }] = await Promise.all([
+  const [{ data: f }, { data: pruefungen }, { data: einstellung }, { data: bloecke }, { data: auswahl }, { data: zuordnung }] = await Promise.all([
     supabase
       .from("fahrer")
       .select("id, vorname, nachname, email, telefon, user_id, geburtsdatum, fqn_gueltig_bis, adr_gueltig_bis, fahrerkarte_gueltig_bis")
@@ -44,6 +45,9 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
       .order("eingereicht_am", { ascending: false })
       .returns<FsPruefung[]>(),
     supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage").eq("firma_id", firmaId).maybeSingle(),
+    supabase.from("unterweisungen").select("schluessel, titel, kurz, symbol, dauer_min").order("reihenfolge").returns<Unterweisung[]>(),
+    supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", firmaId).returns<Auswahl[]>(),
+    supabase.from("fahrer_unterweisungen").select("unterweisung, aktiv").eq("fahrer_id", fahrerId).returns<Auswahl[]>(),
   ]);
   if (!f) notFound();
 
@@ -125,6 +129,43 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
             </Link>
           )}
         </Karte>
+
+        <section id="unterweisungen" className="scroll-mt-4">
+          <Karte titel="Unterweisungen">
+            <p className="text-sm text-gray-600">
+              Welche Unterweisungen braucht {f.vorname}? Ausgeschaltete erscheinen nicht in der Fahrer-App. Ohne Änderung gilt der Standard der Firma.
+            </p>
+            <ul className="flex flex-col divide-y divide-gray-200">
+              {(bloecke ?? []).map((b) => {
+                const standard = blockAktiv(b.schluessel, auswahl ?? [], []);
+                const an = blockAktiv(b.schluessel, auswahl ?? [], zuordnung ?? []);
+                return (
+                  <li key={b.schluessel} className="flex items-center justify-between gap-3 py-1">
+                    <span className="flex flex-col">
+                      <span className="font-semibold">{b.titel}</span>
+                      <span className={`text-sm ${an === standard ? "text-gray-600" : "font-semibold text-marke-blau"}`}>
+                        {an === standard ? "wie Standard der Firma" : "nur für diesen Fahrer geändert"}
+                      </span>
+                    </span>
+                    <form action={fahrerUnterweisungSchalten.bind(null, firmaId, fahrerId, b.schluessel, !an, standard)}>
+                      <button
+                        type="submit"
+                        role="switch"
+                        aria-checked={an}
+                        aria-label={`${b.titel} für ${f.vorname} ${an ? "ausschalten" : "einschalten"}`}
+                        className="flex h-11 items-center"
+                      >
+                        <span className={`flex h-7 w-12 items-center rounded-full p-1 ${an ? "justify-end bg-ok" : "justify-start bg-gray-300"}`}>
+                          <span className="h-5 w-5 rounded-full bg-white shadow" />
+                        </span>
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </Karte>
+        </section>
 
         <Karte titel="Angaben">
           <form action={fahrerSpeichern.bind(null, firmaId, fahrerId)} className="flex flex-col gap-3">
