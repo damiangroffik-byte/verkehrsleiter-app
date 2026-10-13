@@ -38,18 +38,18 @@ export default async function UnterweisungenSeite() {
         <p className={`rounded-xl p-3 font-semibold ${offen > 0 ? "bg-marke-gelb/40 text-marke-blau" : "bg-ok/10 text-ok"}`}>
           {offen === 0 ? "Alles erledigt. Danke!" : offen === 1 ? "1 Unterweisung ist fällig." : `${offen} Unterweisungen sind fällig.`}
         </p>
-        {Object.keys(daten.infos).length > 0 && (
-          <Link href="/fahrer/unterweisungen/infos" className="flex min-h-16 items-center gap-3 rounded-2xl bg-marke-blau p-4 text-white shadow-sm">
-            <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-marke-gelb text-xl text-marke-blau">
-              ℹ
+        <Link href="/fahrer/unterweisungen/infos" className="flex min-h-16 items-center gap-3 rounded-2xl bg-marke-blau p-4 text-white shadow-sm">
+          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-marke-gelb text-xl text-marke-blau">
+            ℹ
+          </span>
+          <span className="flex flex-col">
+            <span className="font-semibold">Allgemeine Informationen</span>
+            <span className="text-sm text-white/80">
+              {Object.keys(daten.infos).length > 0 ? "Ersthelfer, Verbandkasten, Feuerlöscher, Sammelpunkt …" : "Noch nichts eingetragen"}
             </span>
-            <span className="flex flex-col">
-              <span className="font-semibold">Allgemeine Informationen</span>
-              <span className="text-sm text-white/80">Ersthelfer, Verbandkasten, Feuerlöscher, Sammelpunkt …</span>
-            </span>
-            <span aria-hidden className="ml-auto text-2xl">›</span>
-          </Link>
-        )}
+          </span>
+          <span aria-hidden className="ml-auto text-2xl">›</span>
+        </Link>
         <ul className="flex flex-col gap-3">
           {liste.map(({ b, s }) => (
             <li key={b.schluessel} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
