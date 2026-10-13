@@ -78,20 +78,20 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
       <Karte titel={mOffen.length > 0 ? `Mängel (${mOffen.length} offen)` : "Mängel"}>
         {mOffen.length === 0 && <p className="text-gray-600">Keine offenen Mängel.</p>}
         {mOffen.length > 0 && (
-          <ul className="divide-y divide-gray-200">
-            {mOffen.map((m) => (
-              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
+          <ol className="flex flex-col gap-4">
+            {mOffen.map((m, i) => (
+              <MangelEintrag key={m.id} nummer={i + 1} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
             ))}
-          </ul>
+          </ol>
         )}
         {mErledigt.length > 0 && (
           <details className="rounded-xl bg-grund p-3">
             <summary className="min-h-11 cursor-pointer content-center font-semibold">Erledigte Mängel ({mErledigt.length})</summary>
-            <ul className="divide-y divide-gray-200">
-              {mErledigt.map((m) => (
-                <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
+            <ol className="flex flex-col gap-4">
+              {mErledigt.map((m, i) => (
+                <MangelEintrag key={m.id} nummer={i + 1} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
               ))}
-            </ul>
+            </ol>
           </details>
         )}
       </Karte>

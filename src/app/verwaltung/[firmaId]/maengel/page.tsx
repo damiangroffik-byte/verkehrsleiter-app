@@ -30,22 +30,22 @@ export default async function MaengelSeite({ params, searchParams }: PageProps<"
       )}
       <Karte titel="Offen">
         {offen.length > 0 ? (
-          <ul className="divide-y divide-gray-200">
-            {offen.map((m) => (
-              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} weitergabe={weitergabe} />
+          <ol className="flex flex-col gap-4">
+            {offen.map((m, i) => (
+              <MangelEintrag key={m.id} nummer={i + 1} m={m} firmaId={firmaId} zurueck={zurueck} weitergabe={weitergabe} />
             ))}
-          </ul>
+          </ol>
         ) : (
           <p className="text-gray-600">Alles in Ordnung.</p>
         )}
       </Karte>
       {behoben.length > 0 && (
         <Karte titel="Zuletzt erledigt">
-          <ul className="divide-y divide-gray-200">
-            {behoben.map((m) => (
-              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} weitergabe={weitergabe} />
+          <ol className="flex flex-col gap-4">
+            {behoben.map((m, i) => (
+              <MangelEintrag key={m.id} nummer={i + 1} m={m} firmaId={firmaId} zurueck={zurueck} weitergabe={weitergabe} />
             ))}
-          </ul>
+          </ol>
         </Karte>
       )}
     </main>

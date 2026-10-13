@@ -17,8 +17,8 @@ type Props = {
 
 const feld = "h-11 rounded-xl border border-gray-300 bg-white px-3 text-base text-marke-blau-dunkel";
 const textfeld = "rounded-xl border border-gray-300 bg-white p-3 text-base text-marke-blau-dunkel";
-const knopf = "h-12 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau";
-const zusammenfassung = "flex min-h-11 cursor-pointer items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau";
+const knopf = "h-12 w-full rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau";
+const zusammenfassung = "flex h-12 w-full cursor-pointer list-none items-center justify-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau [&::-webkit-details-marker]:hidden group-open:bg-marke-blau group-open:text-white";
 
 // Unter einem offenen Mangel: Werkstatt anschreiben und den Fahrer mit Termin zur Werkstatt schicken.
 export function MangelWeitergeben({ mangel, firma, werkstaetten, fahrer, letzteWerkstattId, werkstattAktion, fahrerAktion }: Props) {
@@ -46,7 +46,7 @@ export function MangelWeitergeben({ mangel, firma, werkstaetten, fahrer, letzteW
   return (
     <div className="flex flex-col gap-2">
       <details className="group">
-        <summary className={zusammenfassung}>Mail an Werkstatt</summary>
+        <summary className={zusammenfassung}>✉ Mail an Werkstatt</summary>
         <form action={werkstattAktion} className="mt-3 flex flex-col gap-3 rounded-xl bg-grund p-3">
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Werkstatt
@@ -89,7 +89,7 @@ export function MangelWeitergeben({ mangel, firma, werkstaetten, fahrer, letzteW
       </details>
 
       <details className="group">
-        <summary className={zusammenfassung}>Fahrer zur Werkstatt schicken</summary>
+        <summary className={zusammenfassung}>🚚 Fahrer zur Werkstatt schicken</summary>
         <form action={fahrerAktion} className="mt-3 flex flex-col gap-3 rounded-xl bg-grund p-3">
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Fahrer
