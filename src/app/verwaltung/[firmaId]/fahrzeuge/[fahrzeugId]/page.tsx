@@ -6,6 +6,7 @@ import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
 import { ART_INFO, datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
 import { tag } from "@/lib/fuehrerschein/regeln";
 import { empfaenger } from "@/lib/fristMail";
+import { MANGEL_SPALTEN, MangelEintrag, type Mangel } from "@/components/verwaltung/MangelEintrag";
 import { fahrzeugSpeichern, mailJetztSenden } from "../actions";
 
 type Fahrzeug = FristFahrzeug & { adr: boolean };
@@ -22,7 +23,7 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
   if (!firma) notFound();
   const heute = tag(new Date(jetzt()));
 
-  const [{ data: z }, { data: regeln }, { data: belege }, { data: mails }] = await Promise.all([
+  const [{ data: z }, { data: regeln }, { data: belege }, { data: mails }, { data: maengel }] = await Promise.all([
     supabase.from("fahrzeuge").select("*").eq("id", fahrzeugId).eq("firma_id", firmaId).maybeSingle<Fahrzeug>(),
     supabase.from("frist_regeln").select("art, vorwarnung_tage, mail_an").eq("firma_id", firmaId).returns<{ art: Art; vorwarnung_tage: number; mail_an: string | null }[]>(),
     supabase
@@ -38,9 +39,14 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
       .order("gesendet_am", { ascending: false })
       .limit(20)
       .returns<Mail[]>(),
+    supabase.from("maengel").select(MANGEL_SPALTEN).eq("firma_id", firmaId).eq("fahrzeug_id", fahrzeugId).order("id").limit(100).returns<Mangel[]>(),
   ]);
   if (!z) notFound();
   const regel = (a: Art) => regeln?.find((r) => r.art === a);
+  const mListe = (maengel ?? []).sort((a, b) => (b.kontrolle?.durchgefuehrt_am ?? "").localeCompare(a.kontrolle?.durchgefuehrt_am ?? ""));
+  const mOffen = mListe.filter((m) => m.status === "offen");
+  const mErledigt = mListe.filter((m) => m.status === "behoben").slice(0, 10);
+  const zurueck = `/verwaltung/${firmaId}/fahrzeuge/${fahrzeugId}`;
   const arten = geltendeArten(z);
 
   // Neuestes Foto je Prüfart als kurzlebiger Link.
@@ -65,6 +71,27 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
           {fehler}
         </p>
       )}
+
+      <Karte titel={mOffen.length > 0 ? `Mängel (${mOffen.length} offen)` : "Mängel"}>
+        {mOffen.length === 0 && <p className="text-gray-600">Keine offenen Mängel.</p>}
+        {mOffen.length > 0 && (
+          <ul className="divide-y divide-gray-200">
+            {mOffen.map((m) => (
+              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} />
+            ))}
+          </ul>
+        )}
+        {mErledigt.length > 0 && (
+          <details className="rounded-xl bg-grund p-3">
+            <summary className="min-h-11 cursor-pointer content-center font-semibold">Erledigte Mängel ({mErledigt.length})</summary>
+            <ul className="divide-y divide-gray-200">
+              {mErledigt.map((m) => (
+                <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} />
+              ))}
+            </ul>
+          </details>
+        )}
+      </Karte>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <Karte titel="Prüftermine">

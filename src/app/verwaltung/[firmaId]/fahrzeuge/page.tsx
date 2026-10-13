@@ -17,7 +17,7 @@ export default async function FahrzeugeSeite({ params }: PageProps<"/verwaltung/
   if (!firma) notFound();
   const heute = tag(new Date(jetzt()));
 
-  const [{ data: fahrzeuge }, { data: regeln }, { data: belege }] = await Promise.all([
+  const [{ data: fahrzeuge }, { data: regeln }, { data: belege }, { data: maengel }] = await Promise.all([
     supabase
       .from("fahrzeuge")
       .select(`${FAHRZEUG_SPALTEN}, adr, fahrzeugart:fahrzeugarten(name)`)
@@ -27,7 +27,10 @@ export default async function FahrzeugeSeite({ params }: PageProps<"/verwaltung/
       .returns<Fahrzeug[]>(),
     supabase.from("frist_regeln").select("art, vorwarnung_tage").eq("firma_id", firmaId).returns<{ art: Art; vorwarnung_tage: number }[]>(),
     supabase.from("fahrzeug_frist_belege").select("fahrzeug_id, art").eq("firma_id", firmaId).not("foto_pfad", "is", null).returns<{ fahrzeug_id: string; art: Art }[]>(),
+    supabase.from("maengel").select("fahrzeug_id").eq("firma_id", firmaId).eq("status", "offen").returns<{ fahrzeug_id: string | null }[]>(),
   ]);
+  const offeneMaengel = new Map<string, number>();
+  for (const m of maengel ?? []) if (m.fahrzeug_id) offeneMaengel.set(m.fahrzeug_id, (offeneMaengel.get(m.fahrzeug_id) ?? 0) + 1);
   const liste = fahrzeuge ?? [];
   const vorwarnung = (a: Art) => regeln?.find((r) => r.art === a)?.vorwarnung_tage ?? standardRegel(a).vorwarnung_tage;
   const mitFoto = new Set((belege ?? []).map((b) => `${b.fahrzeug_id}-${b.art}`));
@@ -65,6 +68,11 @@ export default async function FahrzeugeSeite({ params }: PageProps<"/verwaltung/
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
+                        {offeneMaengel.has(z.id) && (
+                          <span className="text-xs font-semibold text-mangel">
+                            {offeneMaengel.get(z.id)} {offeneMaengel.get(z.id) === 1 ? "Mangel" : "Mängel"} offen
+                          </span>
+                        )}
                       </Link>
                     </td>
                     {ARTEN.map((a) => (
