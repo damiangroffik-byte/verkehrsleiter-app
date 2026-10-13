@@ -16,7 +16,8 @@ export function mailBereit() {
 
 export type Anhang = { filename: string; content: Buffer; contentType: string };
 
-export async function sendeMail(an: string[], betreff: string, text: string, anhaenge: Anhang[] = []) {
+// antwortAn: Antworten des Empfängers gehen an diese Adresse (z. B. der Unternehmer selbst).
+export async function sendeMail(an: string[], betreff: string, text: string, anhaenge: Anhang[] = [], antwortAn?: string) {
   const t = transport();
   if (!t) throw new Error("SMTP ist nicht eingerichtet.");
   await t.sendMail({
@@ -25,6 +26,7 @@ export async function sendeMail(an: string[], betreff: string, text: string, anh
     subject: betreff,
     text,
     attachments: anhaenge,
+    ...(antwortAn ? { replyTo: antwortAn } : {}),
   });
 }
 

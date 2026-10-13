@@ -67,3 +67,24 @@ export async function geburtstagEinstellen(firmaId: string, formData: FormData) 
   revalidatePath("/fahrer", "layout");
   redirect(`${ziel}?gespeichert=1#geburtstag`);
 }
+
+export async function werkstattAnlegen(firmaId: string, formData: FormData) {
+  const ziel = `/verwaltung/${firmaId}/einstellungen`;
+  const wert = (n: string, max: number) => String(formData.get(n) ?? "").trim().slice(0, max) || null;
+  const name = wert("name", 120);
+  const email = wert("email", 200);
+  if (!name) redirect(`${ziel}?fehler=${encodeURIComponent("Bitte einen Namen für die Werkstatt eingeben.")}#werkstaetten`);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) redirect(`${ziel}?fehler=${encodeURIComponent("Die E-Mail-Adresse sieht nicht richtig aus.")}#werkstaetten`);
+  const supabase = await createClient();
+  const { error } = await supabase.from("werkstaetten").insert({ firma_id: firmaId, name, email, adresse: wert("adresse", 300), telefon: wert("telefon", 60) });
+  if (error) redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt.")}#werkstaetten`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  redirect(`${ziel}?gespeichert=1#werkstaetten`);
+}
+
+export async function werkstattLoeschen(firmaId: string, werkstattId: string) {
+  const supabase = await createClient();
+  await supabase.from("werkstaetten").delete().eq("id", werkstattId).eq("firma_id", firmaId);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  redirect(`/verwaltung/${firmaId}/einstellungen?gespeichert=1#werkstaetten`);
+}

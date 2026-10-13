@@ -9,6 +9,10 @@ import { blockStatus } from "@/lib/unterweisung/regeln";
 import { unterweisungenLaden } from "./unterweisungen/daten";
 import { tag } from "@/lib/fuehrerschein/regeln";
 import { grussText, tageBisGeburtstag } from "@/lib/geburtstag";
+import { terminText } from "@/lib/mangelWeitergeben";
+import { nachrichtGelesen } from "./actions";
+
+type Nachricht = { id: string; termin: string | null; text: string; gesendet_am: string; gelesen_am: string | null };
 
 type FahrerDaten = {
   id: string;
@@ -60,6 +64,18 @@ export default async function FahrerStart() {
         .limit(20)
         .returns<Pruefung[]>()
     : { data: null };
+  // Nachrichten vom Büro: ungelesene und alle mit noch anstehendem Termin.
+  const { data: nachrichtenRoh } = ich
+    ? await supabase
+        .from("mangel_nachrichten")
+        .select("id, termin, text, gesendet_am, gelesen_am")
+        .eq("fahrer_id", ich.id)
+        .eq("art", "fahrer")
+        .order("gesendet_am", { ascending: false })
+        .limit(10)
+        .returns<Nachricht[]>()
+    : { data: null };
+  const nachrichten = (nachrichtenRoh ?? []).filter((n) => !n.gelesen_am || (n.termin && new Date(n.termin).getTime() > jetzt() - 3 * 3600 * 1000));
   const einstellung = ich?.firmen?.firma_einstellungen;
   const gruss =
     ich?.geburtsdatum && ich.geburtstag_gruss && tageBisGeburtstag(ich.geburtsdatum, heuteTag) === 0
@@ -88,6 +104,21 @@ export default async function FahrerStart() {
             <p className="whitespace-pre-line">{gruss}</p>
           </section>
         )}
+        {nachrichten.map((n) => (
+          <section key={n.id} className={`flex flex-col gap-2 rounded-2xl border-2 bg-white p-5 shadow-sm ${n.gelesen_am ? "border-gray-200" : "border-marke-blau"}`}>
+            <p className="font-titel text-lg font-semibold text-marke-blau-dunkel">{n.termin ? `Werkstatttermin: ${terminText(n.termin)} Uhr` : "Nachricht vom Büro"}</p>
+            <p className="whitespace-pre-line break-words">{n.text}</p>
+            {n.gelesen_am ? (
+              <p className="text-sm text-ok">Gelesen ✓</p>
+            ) : (
+              <form action={nachrichtGelesen.bind(null, n.id)}>
+                <button type="submit" className="h-12 w-full rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+                  Gelesen
+                </button>
+              </form>
+            )}
+          </section>
+        ))}
         <Link
           href="/fahrer/kontrolle"
           className="flex h-14 items-center justify-center rounded-xl bg-marke-gelb text-lg font-semibold text-marke-blau"

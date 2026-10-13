@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
-import { Karte, Knopf } from "@/components/ui";
+import { Feld, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { VORWARNUNG_TAGE } from "@/lib/fuehrerschein/regeln";
 import { INFO_FELDER, infosBereinigen } from "@/lib/unterweisung/infos";
 import { GRUSS_PLATZHALTER, STANDARD_GRUSS, STANDARD_VORLAUF } from "@/lib/geburtstag";
-import { fuehrerscheinEinstellen, geburtstagEinstellen, infosSpeichern } from "./actions";
+import { fuehrerscheinEinstellen, geburtstagEinstellen, infosSpeichern, werkstattAnlegen, werkstattLoeschen } from "./actions";
+import type { Werkstatt } from "@/lib/mangelWeitergeben";
 
 const INTERVALLE = [1, 2, 3, 4, 6, 12];
 const VORWARNUNGEN = [7, 14, 21, 30, 45, 60];
@@ -19,9 +20,10 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
   if (!firma) notFound();
   const darfAendern = firma.rolle === "verkehrsleiter";
 
-  const [{ data: einstellung }, { data: infos }] = await Promise.all([
+  const [{ data: einstellung }, { data: infos }, { data: werkstaetten }] = await Promise.all([
     supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_vorlauf_tage, geburtstag_text").eq("firma_id", firmaId).maybeSingle(),
     supabase.from("firma_infos").select("angaben").eq("firma_id", firmaId).maybeSingle(),
+    supabase.from("werkstaetten").select("id, name, email, adresse, telefon").eq("firma_id", firmaId).order("name").returns<Werkstatt[]>(),
   ]);
   const angaben = infosBereinigen(infos?.angaben ?? {});
   const intervall = einstellung?.fuehrerschein_intervall_monate ?? 6;
@@ -86,6 +88,38 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
             {darfAendern ? <Knopf>Speichern</Knopf> : <p className="text-sm text-gray-600">Ändern kann nur der Verkehrsleiter.</p>}
           </form>
         </Karte>
+
+        <div id="werkstaetten" className="scroll-mt-4">
+          <Karte titel="Werkstätten">
+            <p className="text-sm text-gray-600">Diese Werkstätten kannst du bei einem Mangel direkt anschreiben und dem Fahrer als Ziel schicken.</p>
+            {werkstaetten && werkstaetten.length > 0 && (
+              <ul className="divide-y divide-gray-200">
+                {werkstaetten.map((w) => (
+                  <li key={w.id} className="flex items-center justify-between gap-3 py-2">
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-marke-blau-dunkel">{w.name}</span>
+                      <span className="block break-words text-sm text-gray-600">{[w.email, w.adresse, w.telefon].filter(Boolean).join(" · ") || "Keine Angaben"}</span>
+                    </span>
+                    <form action={werkstattLoeschen.bind(null, firmaId, w.id)}>
+                      <button type="submit" className="h-11 px-2 text-sm font-semibold text-mangel underline">
+                        Entfernen
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form action={werkstattAnlegen.bind(null, firmaId)} className="grid gap-3 border-t border-gray-200 pt-3 sm:grid-cols-2">
+              <Feld label="Name" name="name" placeholder="z. B. Reifen Müller" required />
+              <Feld label="E-Mail" name="email" type="email" placeholder="werkstatt@beispiel.de" />
+              <Feld label="Adresse" name="adresse" placeholder="Straße, PLZ Ort" />
+              <Feld label="Telefon" name="telefon" type="tel" />
+              <div>
+                <Knopf>Werkstatt hinzufügen</Knopf>
+              </div>
+            </form>
+          </Karte>
+        </div>
 
         <div id="geburtstag" className="scroll-mt-4">
           <Karte titel="Geburtstage">

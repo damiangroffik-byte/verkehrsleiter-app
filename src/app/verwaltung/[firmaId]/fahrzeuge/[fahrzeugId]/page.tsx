@@ -6,7 +6,8 @@ import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
 import { ART_INFO, datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
 import { tag } from "@/lib/fuehrerschein/regeln";
 import { empfaenger } from "@/lib/fristMail";
-import { MANGEL_SPALTEN, MangelEintrag, type Mangel } from "@/components/verwaltung/MangelEintrag";
+import { MANGEL_SPALTEN, MangelEintrag, weitergabeLaden, type Mangel } from "@/components/verwaltung/MangelEintrag";
+import { Gesendet } from "@/components/verwaltung/Gesendet";
 import { fahrzeugSpeichern, mailJetztSenden } from "../actions";
 
 type Fahrzeug = FristFahrzeug & { adr: boolean };
@@ -17,7 +18,7 @@ const zeit = (d: string) => new Date(d).toLocaleString("de-DE", { timeZone: "Eur
 
 export default async function FahrzeugSeite({ params, searchParams }: PageProps<"/verwaltung/[firmaId]/fahrzeuge/[fahrzeugId]">) {
   const { firmaId, fahrzeugId } = await params;
-  const { gespeichert, fehler } = await searchParams;
+  const { gespeichert, fehler, gesendet } = await searchParams;
   const { supabase, mitgliedschaften } = await holeNutzer();
   const firma = mitgliedschaften.find((m) => m.firma_id === firmaId && istVerwalter(m.rolle));
   if (!firma) notFound();
@@ -47,6 +48,7 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
   const mOffen = mListe.filter((m) => m.status === "offen");
   const mErledigt = mListe.filter((m) => m.status === "behoben").slice(0, 10);
   const zurueck = `/verwaltung/${firmaId}/fahrzeuge/${fahrzeugId}`;
+  const weitergabe = await weitergabeLaden(supabase, firmaId, firma.firmen?.name ?? "", [...mOffen, ...mErledigt].map((m) => m.id));
   const arten = geltendeArten(z);
 
   // Neuestes Foto je Prüfart als kurzlebiger Link.
@@ -66,6 +68,7 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
           {gespeichert === "mail" ? "Mail gesendet." : "Gespeichert."}
         </p>
       )}
+      {typeof gesendet === "string" && <Gesendet art={gesendet} />}
       {typeof fehler === "string" && (
         <p role="alert" className="rounded-xl border-2 border-mangel bg-white p-3 font-semibold text-mangel">
           {fehler}
@@ -77,7 +80,7 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
         {mOffen.length > 0 && (
           <ul className="divide-y divide-gray-200">
             {mOffen.map((m) => (
-              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} />
+              <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
             ))}
           </ul>
         )}
@@ -86,7 +89,7 @@ export default async function FahrzeugSeite({ params, searchParams }: PageProps<
             <summary className="min-h-11 cursor-pointer content-center font-semibold">Erledigte Mängel ({mErledigt.length})</summary>
             <ul className="divide-y divide-gray-200">
               {mErledigt.map((m) => (
-                <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} />
+                <MangelEintrag key={m.id} m={m} firmaId={firmaId} zurueck={zurueck} mitKennzeichen={false} weitergabe={weitergabe} />
               ))}
             </ul>
           </details>
