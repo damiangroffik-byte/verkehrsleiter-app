@@ -2,6 +2,9 @@
 export type InfoFeld = { schluessel: string; titel: string; anzahl: number; beispiel: string };
 
 export const INFO_FELDER: InfoFeld[] = [
+  { schluessel: "berufsgenossenschaft", titel: "Berufsgenossenschaft (Unfallversicherung)", anzahl: 1, beispiel: "z. B. BG Verkehr, Anschrift, Telefon" },
+  { schluessel: "durchgangsarzt", titel: "Durchgangsarzt (bei Arbeitsunfällen)", anzahl: 2, beispiel: "Name, Adresse, Telefon" },
+  { schluessel: "krankenhaus", titel: "Nächstes Krankenhaus", anzahl: 1, beispiel: "Name, Adresse, Telefon" },
   { schluessel: "ersthelfer", titel: "Ersthelfer im Unternehmen", anzahl: 5, beispiel: "Name, Telefon" },
   { schluessel: "fachkraft_arbeitssicherheit", titel: "Fachkraft für Arbeitssicherheit", anzahl: 1, beispiel: "Name, Telefon" },
   { schluessel: "betriebsarzt", titel: "Betriebsarzt / Betriebsärztin", anzahl: 1, beispiel: "Name, Adresse, Telefon" },
