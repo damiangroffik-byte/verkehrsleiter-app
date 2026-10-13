@@ -49,9 +49,9 @@ export default async function FahrerStart() {
         .returns<Pruefung[]>()
     : { data: null };
   const einstellung = ich?.firmen?.firma_einstellungen;
-  const uwFaellig = unterweisungen
+  const uwFaellig = (unterweisungen
     ? unterweisungen.bloecke.filter((b) => blockStatus(unterweisungen.teilnahmen.filter((t) => t.unterweisung === b.schluessel), new Date(jetzt())).faellig).length
-    : 0;
+    : 0) + (unterweisungen?.infosOffen ? 1 : 0);
   const fs = fuehrerscheinStatus(
     pruefungen ?? [],
     einstellung?.fuehrerschein_intervall_monate ?? 6,
@@ -113,7 +113,7 @@ export default async function FahrerStart() {
           <Karte titel="Unterweisungen">
             <StatusZeile
               stufe={uwFaellig > 0 ? "rot" : "ok"}
-              text={uwFaellig === 0 ? "Alle Unterweisungen erledigt" : uwFaellig === 1 ? "1 Unterweisung ist fällig" : `${uwFaellig} Unterweisungen sind fällig`}
+              text={uwFaellig === 0 ? "Alle Unterweisungen erledigt" : uwFaellig === 1 ? "1 Aufgabe ist offen" : `${uwFaellig} Aufgaben sind offen`}
             />
             <Link
               href="/fahrer/unterweisungen"

@@ -5,6 +5,7 @@ import { PdfKnopf } from "@/components/PdfKnopf";
 import { StatusZeile } from "@/components/StatusZeile";
 import { Karte } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
+import { infosBereinigen } from "@/lib/unterweisung/infos";
 import { BESTEHEN_PROZENT, blockStatus, type Teilnahme, type Unterweisung } from "@/lib/unterweisung/regeln";
 import { unterweisungSchalten } from "./actions";
 
@@ -20,7 +21,7 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
   const darfAendern = firma.rolle === "verkehrsleiter";
   const heute = new Date(jetzt());
 
-  const [{ data: fahrer }, { data: bloecke }, { data: auswahl }, { data: teilnahmen }] = await Promise.all([
+  const [{ data: fahrer }, { data: bloecke }, { data: auswahl }, { data: teilnahmen }, { data: infos }, { data: bestaetigungen }] = await Promise.all([
     supabase.from("fahrer").select("id, vorname, nachname, user_id").eq("firma_id", firmaId).eq("aktiv", true).order("nachname").returns<Fahrer[]>(),
     supabase.from("unterweisungen").select("schluessel, titel, kurz, symbol, dauer_min").order("reihenfolge").returns<Unterweisung[]>(),
     supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", firmaId).returns<{ unterweisung: string; aktiv: boolean }[]>(),
@@ -30,7 +31,18 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
       .eq("firma_id", firmaId)
       .order("durchgefuehrt_am", { ascending: false })
       .returns<FirmaTeilnahme[]>(),
+    supabase.from("firma_infos").select("angaben, geaendert_am").eq("firma_id", firmaId).maybeSingle(),
+    supabase
+      .from("firma_info_bestaetigungen")
+      .select("fahrer_id, stand, bestaetigt_am")
+      .eq("firma_id", firmaId)
+      .order("stand", { ascending: false })
+      .returns<{ fahrer_id: string; stand: string; bestaetigt_am: string }[]>(),
   ]);
+  const hatInfos = Object.keys(infosBereinigen(infos?.angaben ?? {})).length > 0;
+  // Gültige Lesebestätigung: für den aktuellen Stand der Informationen.
+  const bestaetigtAm = (fahrerId: string) =>
+    (bestaetigungen ?? []).find((x) => x.fahrer_id === fahrerId && infos && Date.parse(x.stand) >= Date.parse(infos.geaendert_am))?.bestaetigt_am ?? null;
   const aus = new Set((auswahl ?? []).filter((a) => !a.aktiv).map((a) => a.unterweisung));
   const aktive = (bloecke ?? []).filter((b) => !aus.has(b.schluessel));
 
@@ -40,10 +52,11 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
       const versuche = eigene.filter((t) => t.unterweisung === b.schluessel);
       return { b, s: blockStatus(versuche, heute), versuche: versuche.length };
     });
-    return { f, status, offen: status.filter((x) => x.s.faellig).length };
+    const gelesen = bestaetigtAm(f.id);
+    return { f, status, gelesen, offen: status.filter((x) => x.s.faellig).length + (hatInfos && !gelesen ? 1 : 0) };
   });
   liste.sort((a, b) => b.offen - a.offen);
-  const gesamt = liste.length * aktive.length;
+  const gesamt = liste.length * (aktive.length + (hatInfos ? 1 : 0));
   const erledigt = gesamt - liste.reduce((n, x) => n + x.offen, 0);
 
   return (
@@ -60,14 +73,16 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
             <p className="font-titel text-3xl font-extrabold">
               {erledigt} von {gesamt}
             </p>
-            <p>gültige Unterweisungen ({liste.length} Fahrer × {aktive.length} Blöcke)</p>
+            <p>
+              erledigt ({liste.length} Fahrer × {aktive.length} Blöcke{hatInfos ? " + Lesebestätigung" : ""})
+            </p>
           </section>
           {liste.length === 0 && (
             <Karte>
               <p className="text-gray-600">Noch keine aktiven Fahrer.</p>
             </Karte>
           )}
-          {liste.map(({ f, status, offen }) => (
+          {liste.map(({ f, status, gelesen, offen }) => (
             <section key={f.id} className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-titel text-lg font-semibold">
@@ -79,6 +94,19 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
                 </span>
               </div>
               <ul className="divide-y divide-gray-200">
+                {hatInfos && (
+                  <li className="flex flex-col py-2">
+                    <span className="font-semibold">Allgemeine Informationen</span>
+                    <StatusZeile
+                      stufe={gelesen ? "ok" : "rot"}
+                      text={
+                        gelesen
+                          ? `Gelesen am ${new Date(gelesen).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })}`
+                          : "Noch nicht als gelesen bestätigt"
+                      }
+                    />
+                  </li>
+                )}
                 {status.map(({ b, s, versuche }) => (
                   <li key={b.schluessel} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span className="flex min-w-0 flex-col">
@@ -115,6 +143,7 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
               <li>Nach bestandenem Test unterschreibt er in der App.</li>
               <li>Gültig für ein Jahr. 30 Tage vorher wird er als „bald fällig“ angezeigt.</li>
               <li>Zu jeder Unterweisung gibt es einen Nachweis als PDF.</li>
+              <li>Die allgemeinen Informationen bestätigt der Fahrer als gelesen. Änderst du sie, muss er neu bestätigen.</li>
             </ul>
           </Karte>
           <Karte titel="Allgemeine Informationen">

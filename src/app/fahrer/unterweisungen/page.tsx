@@ -26,7 +26,7 @@ export default async function UnterweisungenSeite() {
 
   const heute = new Date(jetzt());
   const liste = daten.bloecke.map((b) => ({ b, s: blockStatus(daten.teilnahmen.filter((t) => t.unterweisung === b.schluessel), heute) }));
-  const offen = liste.filter((x) => x.s.faellig).length;
+  const offen = liste.filter((x) => x.s.faellig).length + (daten.infosOffen ? 1 : 0);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -36,7 +36,7 @@ export default async function UnterweisungenSeite() {
           Einmal im Jahr machst du jeden Block: lesen, Test mit {BESTEHEN_PROZENT} % richtigen Antworten bestehen und unterschreiben.
         </p>
         <p className={`rounded-xl p-3 font-semibold ${offen > 0 ? "bg-marke-gelb/40 text-marke-blau" : "bg-ok/10 text-ok"}`}>
-          {offen === 0 ? "Alles erledigt. Danke!" : offen === 1 ? "1 Unterweisung ist fällig." : `${offen} Unterweisungen sind fällig.`}
+          {offen === 0 ? "Alles erledigt. Danke!" : offen === 1 ? "1 Aufgabe ist offen." : `${offen} Aufgaben sind offen.`}
         </p>
         <Link href="/fahrer/unterweisungen/infos" className="flex min-h-16 items-center gap-3 rounded-2xl bg-marke-blau p-4 text-white shadow-sm">
           <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-marke-gelb text-xl text-marke-blau">
@@ -45,7 +45,13 @@ export default async function UnterweisungenSeite() {
           <span className="flex flex-col">
             <span className="font-semibold">Allgemeine Informationen</span>
             <span className="text-sm text-white/80">
-              {Object.keys(daten.infos).length > 0 ? "Ersthelfer, Verbandkasten, Feuerlöscher, Sammelpunkt …" : "Noch nichts eingetragen"}
+              {daten.infosOffen
+                ? "Bitte lesen und bestätigen"
+                : daten.infosBestaetigt
+                  ? "Gelesen und bestätigt"
+                  : Object.keys(daten.infos).length > 0
+                    ? "Ersthelfer, Verbandkasten, Feuerlöscher, Sammelpunkt …"
+                    : "Noch nichts eingetragen"}
             </span>
           </span>
           <span aria-hidden className="ml-auto text-2xl">›</span>

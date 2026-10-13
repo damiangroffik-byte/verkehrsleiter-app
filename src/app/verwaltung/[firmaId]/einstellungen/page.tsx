@@ -86,7 +86,7 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
         <div id="infos" className="scroll-mt-4">
           <Karte titel="Allgemeine Informationen für Fahrer">
             <p className="text-sm text-gray-600">
-              Diese Angaben sehen deine Fahrer in der App unter „Unterweisungen“. Ohne Test, nur zum Lesen. Leere Felder werden nicht angezeigt.
+              Diese Angaben sehen deine Fahrer in der App unter „Unterweisungen“ und bestätigen sie als gelesen. Änderst du etwas, müssen sie neu bestätigen. Leere Felder werden nicht angezeigt.
             </p>
             <form action={infosSpeichern.bind(null, firmaId)} className="flex flex-col gap-5">
               {INFO_FELDER.map((f) => (
