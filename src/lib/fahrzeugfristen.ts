@@ -27,15 +27,17 @@ type ArtInfo = {
   gilt: (f: FristFahrzeug) => boolean;
   // Was der Fahrer fotografieren soll.
   foto: string;
+  // Muss in der Abfahrtskontrolle bekannt sein; sonst kann der Fahrer es später nachholen.
+  pflicht: boolean;
 };
 
 export const ART_INFO: Record<Art, ArtInfo> = {
-  hu: { titel: "Hauptuntersuchung (HU)", kurz: "HU", spalte: "hu_faellig", gilt: () => true, foto: "HU-Plakette am hinteren Kennzeichen oder Fahrzeugschein" },
-  sp: { titel: "Sicherheitsprüfung (SP)", kurz: "SP", spalte: "sp_faellig", gilt: () => true, foto: "SP-Plakette oder letzter Prüfbericht" },
-  tacho: { titel: "Tacho-Prüfung", kurz: "Tacho", spalte: "tacho_faellig", gilt: (f) => !f.ist_anhaenger, foto: "Prüfschild des Fahrtenschreibers (meist an der Fahrertür)" },
-  feuerloescher: { titel: "Feuerlöscher", kurz: "Feuerlöscher", spalte: "feuerloescher_bis", gilt: (f) => !f.ist_anhaenger, foto: "Prüfplakette auf dem Feuerlöscher" },
-  uvv_ladebordwand: { titel: "UVV Ladebordwand / Hubladebühne", kurz: "UVV LBW", spalte: "ladebordwand_uvv_bis", gilt: (f) => f.ladebordwand, foto: "UVV-Prüfplakette an der Ladebordwand" },
-  uvv_ameise: { titel: "UVV Ameise / Stapler", kurz: "UVV Ameise", spalte: "ameise_uvv_bis", gilt: (f) => f.ameise, foto: "UVV-Prüfplakette an der Ameise bzw. am Stapler" },
+  hu: { titel: "Hauptuntersuchung (HU)", kurz: "HU", spalte: "hu_faellig", gilt: () => true, foto: "HU-Plakette am hinteren Kennzeichen oder Fahrzeugschein", pflicht: true },
+  sp: { titel: "Sicherheitsprüfung (SP)", kurz: "SP", spalte: "sp_faellig", gilt: () => true, foto: "SP-Plakette oder letzter Prüfbericht", pflicht: false },
+  tacho: { titel: "Tacho-Prüfung", kurz: "Tacho", spalte: "tacho_faellig", gilt: (f) => !f.ist_anhaenger, foto: "Prüfschild des Fahrtenschreibers (meist an der Fahrertür)", pflicht: false },
+  feuerloescher: { titel: "Feuerlöscher", kurz: "Feuerlöscher", spalte: "feuerloescher_bis", gilt: (f) => !f.ist_anhaenger, foto: "Prüfplakette auf dem Feuerlöscher", pflicht: false },
+  uvv_ladebordwand: { titel: "UVV Ladebordwand / Hubladebühne", kurz: "UVV LBW", spalte: "ladebordwand_uvv_bis", gilt: (f) => f.ladebordwand, foto: "UVV-Prüfplakette an der Ladebordwand", pflicht: true },
+  uvv_ameise: { titel: "UVV Ameise / Stapler", kurz: "UVV Ameise", spalte: "ameise_uvv_bis", gilt: (f) => f.ameise, foto: "UVV-Prüfplakette an der Ameise bzw. am Stapler", pflicht: true },
 };
 
 export function istArt(wert: unknown): wert is Art {
