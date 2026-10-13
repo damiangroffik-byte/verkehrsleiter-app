@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
 import { Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { datumDe } from "@/lib/fuehrerschein/regeln";
@@ -49,9 +49,9 @@ export default async function FuehrerscheinPruefen({ params, searchParams }: Pag
   const name = p.fahrer ? `${p.fahrer.vorname} ${p.fahrer.nachname}` : "Fahrer";
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel="Führerschein prüfen" untertitel={name} zurueck={`/verwaltung/${firmaId}`} />
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-5">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf pfad={[{ titel: "Fahrer", href: `/verwaltung/${firmaId}/fahrer` }, { titel: "Führerschein prüfen" }]} titel="Führerschein prüfen" untertitel={name} />
+      <div className="flex w-full max-w-3xl flex-col gap-5">
         <Karte titel={statusText[p.status]}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
             <dt className="text-gray-600">Eingereicht</dt>

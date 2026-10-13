@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
 import { Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { VORWARNUNG_TAGE } from "@/lib/fuehrerschein/regeln";
@@ -29,9 +29,9 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
   const vorwarnungen = [...new Set([...VORWARNUNGEN, vorwarnung])].sort((a, b) => a - b);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel="Einstellungen" untertitel={firma.firmen?.name} zurueck={`/verwaltung/${firmaId}`} />
-      <div className="mx-auto flex w-full max-w-md flex-col gap-5 p-5">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf titel="Einstellungen" />
+      <div className="flex w-full max-w-xl flex-col gap-5">
         {gespeichert && (
           <p role="status" className="rounded-xl border-2 border-ok bg-white p-3 font-semibold text-ok">
             Gespeichert.

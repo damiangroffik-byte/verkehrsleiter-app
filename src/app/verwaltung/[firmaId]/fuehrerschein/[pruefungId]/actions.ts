@@ -11,8 +11,8 @@ async function pruefen(firmaId: string, pruefungId: string, bestaetigt: boolean,
     const text = error.code === "P0001" ? error.message : "Speichern hat nicht geklappt. Bitte noch einmal versuchen.";
     redirect(`/verwaltung/${firmaId}/fuehrerschein/${pruefungId}?fehler=${encodeURIComponent(text)}`);
   }
-  revalidatePath(`/verwaltung/${firmaId}`);
-  redirect(`/verwaltung/${firmaId}`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  redirect(`/verwaltung/${firmaId}/fahrer`);
 }
 
 export async function fuehrerscheinBestaetigen(firmaId: string, pruefungId: string) {

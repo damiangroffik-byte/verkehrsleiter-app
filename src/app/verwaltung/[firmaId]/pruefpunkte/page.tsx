@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
 import { Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { EIGENE_KATEGORIEN, kategorie } from "@/lib/kontrolle/kategorien";
@@ -72,9 +72,9 @@ export default async function PruefpunkteSeite({ params, searchParams }: PagePro
   const minuten = Math.max(1, Math.round((alltag.length * 15) / 60));
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel="Prüfpunkte festlegen" untertitel={`${firma.firmen?.name ?? ""} · Abfahrtskontrolle`} zurueck={`/verwaltung/${firmaId}`} />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-5">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf pfad={[{ titel: "Abfahrtskontrolle", href: `/verwaltung/${firmaId}/abfahrtskontrolle` }, { titel: "Prüfpunkte" }]} titel="Prüfpunkte festlegen" />
+      <div className="flex w-full flex-col gap-5">
         {gespeichert && (
           <p role="status" className="rounded-xl border-2 border-ok bg-white p-3 font-semibold text-ok">
             Gespeichert.

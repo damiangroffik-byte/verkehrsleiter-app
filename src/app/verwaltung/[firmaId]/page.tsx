@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
 import { PdfKnopf } from "@/components/PdfKnopf";
-import { StatusZeile } from "@/components/StatusZeile";
-import { Feld, Frist, Haken, Karte, Knopf } from "@/components/ui";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
+import { Karte } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
-import { datumDe, fuehrerscheinStatus, tag, type Pruefung } from "@/lib/fuehrerschein/regeln";
+import { tag } from "@/lib/fuehrerschein/regeln";
+import { fristenListe, type FristFahrer, type FristFahrzeug } from "@/lib/fristen";
 import { tageBisGeburtstag, wirdAlt } from "@/lib/geburtstag";
-import { fahrerAnlegen, fahrzeugAnlegen } from "../actions";
 
-type Fahrer = { id: string; vorname: string; nachname: string; email: string | null; user_id: string | null; geburtsdatum: string | null };
+type Fahrer = FristFahrer & { geburtsdatum: string | null };
 type Kontrolle = {
   id: string;
   durchgefuehrt_am: string;
@@ -18,134 +17,68 @@ type Kontrolle = {
   fahrer: { vorname: string; nachname: string } | null;
   fahrzeug: { kennzeichen: string } | null;
 };
-type FsPruefung = Pruefung & { id: string; fahrer_id: string };
-type Fahrzeug = {
-  id: string;
-  kennzeichen: string;
-  ist_anhaenger: boolean;
-  adr: boolean;
-  ladebordwand: boolean;
-  ameise: boolean;
-  hu_faellig: string | null;
-  sp_faellig: string | null;
-  tacho_faellig: string | null;
-};
 
-export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[firmaId]">) {
+function Kachel({ href, zahl, titel, warnung }: { href: string; zahl: number; titel: string; warnung: boolean }) {
+  return (
+    <Link href={href} className={`flex flex-col gap-1 rounded-2xl p-4 shadow-sm ${warnung ? "bg-marke-gelb/50" : "bg-white"}`}>
+      <span className={`font-titel text-3xl font-extrabold ${warnung ? "text-marke-blau" : "text-marke-blau-dunkel"}`}>{zahl}</span>
+      <span className="text-sm font-semibold">{titel}</span>
+    </Link>
+  );
+}
+
+export default async function Uebersicht({ params }: PageProps<"/verwaltung/[firmaId]">) {
   const { firmaId } = await params;
   const { supabase, mitgliedschaften } = await holeNutzer();
   const firma = mitgliedschaften.find((m) => m.firma_id === firmaId && istVerwalter(m.rolle));
   if (!firma) notFound();
-  const heute = jetzt();
+  const heuteTag = tag(new Date(jetzt()));
+  const b = `/verwaltung/${firmaId}`;
 
-  const [{ data: fahrer }, { data: fahrzeuge }, { data: pruefungen }, { data: einstellung }, { data: kontrollen }] = await Promise.all([
-    supabase.from("fahrer").select("id, vorname, nachname, email, user_id, geburtsdatum").eq("firma_id", firmaId).order("nachname").returns<Fahrer[]>(),
+  const seit = new Date(jetzt() - 36 * 3_600_000).toISOString();
+  const [{ data: fahrer }, { data: fahrzeuge }, { count: maengel }, { count: fsOffen }, { data: kontrollen }, { data: juengste }] = await Promise.all([
+    supabase
+      .from("fahrer")
+      .select("id, vorname, nachname, geburtsdatum, fqn_gueltig_bis, adr_gueltig_bis, fahrerkarte_gueltig_bis")
+      .eq("firma_id", firmaId)
+      .eq("aktiv", true)
+      .returns<Fahrer[]>(),
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, ist_anhaenger, adr, ladebordwand, ameise, hu_faellig, sp_faellig, tacho_faellig")
+      .select("id, kennzeichen, hu_faellig, sp_faellig, tacho_faellig, ladebordwand_uvv_bis, ameise_uvv_bis")
       .eq("firma_id", firmaId)
-      .order("kennzeichen")
-      .returns<Fahrzeug[]>(),
-    supabase
-      .from("fuehrerschein_pruefungen")
-      .select("id, fahrer_id, status, eingereicht_am, geprueft_am, gueltig_bis, code95_bis, vermerk")
-      .eq("firma_id", firmaId)
-      .order("eingereicht_am", { ascending: false })
-      .returns<FsPruefung[]>(),
-    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage").eq("firma_id", firmaId).maybeSingle(),
+      .eq("aktiv", true)
+      .returns<FristFahrzeug[]>(),
+    supabase.from("maengel").select("id", { count: "exact", head: true }).eq("firma_id", firmaId).eq("status", "offen"),
+    supabase.from("fuehrerschein_pruefungen").select("id", { count: "exact", head: true }).eq("firma_id", firmaId).eq("status", "eingereicht"),
     supabase
       .from("kontrollen")
       .select("id, durchgefuehrt_am, hat_mangel, abfahrt_freigegeben, fahrer(vorname, nachname), fahrzeug:fahrzeuge!kontrollen_fahrzeug_id_fkey(kennzeichen)")
       .eq("firma_id", firmaId)
       .order("durchgefuehrt_am", { ascending: false })
-      .limit(20)
+      .limit(5)
       .returns<Kontrolle[]>(),
+    supabase.from("kontrollen").select("durchgefuehrt_am").eq("firma_id", firmaId).gte("durchgefuehrt_am", seit).returns<{ durchgefuehrt_am: string }[]>(),
   ]);
-  const intervall = einstellung?.fuehrerschein_intervall_monate ?? 6;
-  const fsListe = (fahrer ?? []).map((f) => {
-    const eigene = (pruefungen ?? []).filter((p) => p.fahrer_id === f.id);
-    return { fahrer: f, status: fuehrerscheinStatus(eigene, intervall, new Date(heute), einstellung?.fuehrerschein_vorwarnung_tage), offenId: eigene.find((p) => p.status === "eingereicht")?.id };
-  });
-  // Geburtstage heute und in den nächsten 5 Tagen.
-  const heuteTag = tag(new Date(heute));
+  const heuteKontrollen = (juengste ?? []).filter((k) => tag(new Date(k.durchgefuehrt_am)) === heuteTag).length;
+  const fristen = fristenListe(fahrzeuge ?? [], fahrer ?? [], heuteTag).filter((f) => f.tage <= 60);
   const geburtstage = (fahrer ?? [])
     .flatMap((f) => (f.geburtsdatum ? [{ f, tage: tageBisGeburtstag(f.geburtsdatum, heuteTag), alt: wirdAlt(f.geburtsdatum, heuteTag) }] : []))
     .filter((g) => g.tage <= 5)
     .sort((a, b) => a.tage - b.tage);
-  const reihenfolge = { wartet: 0, rot: 1, orange: 2, ok: 3 };
-  fsListe.sort((a, b) => reihenfolge[a.status.stufe] - reihenfolge[b.status.stufe]);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel={firma.firmen?.name ?? "Firma"} untertitel="Fahrer und Fahrzeuge" zurueck="/verwaltung" />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5">
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/verwaltung/${firmaId}/einstellungen`}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
-          >
-            Einstellungen
-          </Link>
-          <Link
-            href={`/verwaltung/${firmaId}/pruefpunkte`}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
-          >
-            Prüfpunkte festlegen
-          </Link>
-          <Link
-            href={`/verwaltung/${firmaId}/unterweisungen`}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau"
-          >
-            Unterweisungen
-          </Link>
-        </div>
-        {geburtstage.length > 0 && (
-          <Karte titel="Geburtstage">
-            <ul className="flex flex-col gap-1">
-              {geburtstage.map(({ f, tage, alt }) => (
-                <li key={f.id}>
-                  <Link href={`/verwaltung/${firmaId}/fahrer/${f.id}`} className="flex min-h-11 items-center font-semibold">
-                    {tage === 0 ? "Heute" : tage === 1 ? "Morgen" : `In ${tage} Tagen`}: {f.vorname} {f.nachname} wird {alt}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Karte>
-        )}
-        <Karte titel={`Fahrer (${fahrer?.length ?? 0})`}>
-          {fahrer && fahrer.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {fahrer.map((f) => (
-                <li key={f.id}>
-                  <Link
-                    href={`/verwaltung/${firmaId}/fahrer/${f.id}`}
-                    className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-3"
-                  >
-                    <span className="font-semibold text-marke-blau underline">
-                      {f.vorname} {f.nachname}
-                    </span>
-                    <span className="flex items-center gap-2 text-sm text-gray-600">
-                      {f.email ?? "keine E-Mail"} · {f.user_id ? "angemeldet" : "noch nicht angemeldet"}
-                      <span aria-hidden className="text-lg text-marke-blau">›</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-600">Noch keine Fahrer angelegt.</p>
-          )}
-          <form action={fahrerAnlegen.bind(null, firmaId)} className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-2">
-            <Feld label="Vorname" name="vorname" required />
-            <Feld label="Nachname" name="nachname" required />
-            <Feld label="E-Mail (für die Anmeldung)" name="email" type="email" />
-            <Feld label="Telefon" name="telefon" type="tel" />
-            <div>
-              <Knopf>Fahrer hinzufügen</Knopf>
-            </div>
-          </form>
-        </Karte>
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf titel="Übersicht" untertitel={`${fahrer?.length ?? 0} Fahrer · ${fahrzeuge?.length ?? 0} Fahrzeuge`} />
 
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Auf einen Blick">
+        <Kachel href={`${b}/maengel`} zahl={maengel ?? 0} titel="Offene Mängel" warnung={(maengel ?? 0) > 0} />
+        <Kachel href={`${b}/fristen`} zahl={fristen.length} titel="Fristen in 60 Tagen" warnung={fristen.length > 0} />
+        <Kachel href={`${b}/fahrer`} zahl={fsOffen ?? 0} titel="Führerscheine zu prüfen" warnung={(fsOffen ?? 0) > 0} />
+        <Kachel href={`${b}/abfahrtskontrolle`} zahl={heuteKontrollen} titel="Kontrollen heute" warnung={false} />
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <Karte titel="Letzte Abfahrtskontrollen">
           {kontrollen && kontrollen.length > 0 ? (
             <ul className="divide-y divide-gray-200">
@@ -157,7 +90,9 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
                     </span>
                     <span className="text-sm text-gray-600">
                       {new Date(k.durchgefuehrt_am).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })} Uhr ·{" "}
-                      <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>{k.hat_mangel ? (k.abfahrt_freigegeben ? "Mangel" : "Mangel · Fahrt gestoppt") : "ohne Mangel"}</span>
+                      <span className={k.hat_mangel ? "font-semibold text-mangel" : "text-ok"}>
+                        {k.hat_mangel ? (k.abfahrt_freigegeben ? "Mangel" : "Mangel · Fahrt gestoppt") : "ohne Mangel"}
+                      </span>
                     </span>
                   </span>
                   <PdfKnopf href={`/kontrolle/${k.id}/pdf`} className="flex h-11 items-center rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau">
@@ -169,90 +104,39 @@ export default async function FirmaSeite({ params }: PageProps<"/verwaltung/[fir
           ) : (
             <p className="text-gray-600">Noch keine Kontrolle eingereicht.</p>
           )}
+          <Link href={`${b}/abfahrtskontrolle`} className="flex min-h-11 items-center font-semibold text-marke-blau underline">
+            Alle Kontrollen ansehen
+          </Link>
         </Karte>
 
-        <Karte titel="Führerscheinkontrolle">
-          <p className="text-sm text-gray-600">Prüfabstand: alle {intervall} Monate.</p>
-          {fsListe.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {fsListe.map(({ fahrer: f, status, offenId }) => (
-                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                  <span className="flex flex-col">
-                    <span className="font-semibold">
-                      {f.vorname} {f.nachname}
-                    </span>
-                    <StatusZeile stufe={status.stufe} text={status.text} />
-                    {status.bestaetigt && (
-                      <span className="text-sm text-gray-600">
-                        Fahrerlaubnis bis {datumDe(status.bestaetigt.gueltig_bis)}
-                        {status.bestaetigt.code95_bis ? ` · Code 95 bis ${datumDe(status.bestaetigt.code95_bis)}` : ""}
-                      </span>
-                    )}
-                  </span>
-                  {offenId && (
-                    <Link
-                      href={`/verwaltung/${firmaId}/fuehrerschein/${offenId}`}
-                      className="flex h-11 items-center rounded-xl bg-marke-gelb px-4 font-semibold text-marke-blau"
-                    >
-                      Jetzt prüfen
+        <aside className="flex flex-col gap-4">
+          {geburtstage.length > 0 && (
+            <Karte titel="Geburtstage">
+              <ul className="flex flex-col gap-1">
+                {geburtstage.map(({ f, tage, alt }) => (
+                  <li key={f.id}>
+                    <Link href={`${b}/fahrer/${f.id}`} className="flex min-h-11 items-center font-semibold">
+                      {tage === 0 ? "Heute" : tage === 1 ? "Morgen" : `In ${tage} Tagen`}: {f.vorname} {f.nachname} wird {alt}
                     </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-600">Noch keine Fahrer angelegt.</p>
+                  </li>
+                ))}
+              </ul>
+            </Karte>
           )}
-        </Karte>
-
-        <Karte titel={`Fahrzeuge (${fahrzeuge?.length ?? 0})`}>
-          {fahrzeuge && fahrzeuge.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="text-gray-600">
-                  <tr>
-                    <th className="py-2 pr-3 font-semibold">Kennzeichen</th>
-                    <th className="py-2 pr-3 font-semibold">Art</th>
-                    <th className="py-2 pr-3 font-semibold">HU</th>
-                    <th className="py-2 pr-3 font-semibold">SP</th>
-                    <th className="py-2 pr-3 font-semibold">Tacho</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fahrzeuge.map((z) => (
-                    <tr key={z.id} className="border-t border-gray-200">
-                      <td className="py-2 pr-3 font-semibold">{z.kennzeichen}</td>
-                      <td className="py-2 pr-3">
-                        {z.ist_anhaenger ? "Anhänger" : "Zugmaschine/LKW"}
-                        {z.adr ? " · ADR" : ""}
-                        {z.ladebordwand ? " · Ladebordwand" : ""}
-                        {z.ameise ? " · Elektro-Ameise" : ""}
-                      </td>
-                      <td className="py-2 pr-3"><Frist heute={heute} datum={z.hu_faellig} /></td>
-                      <td className="py-2 pr-3"><Frist heute={heute} datum={z.sp_faellig} /></td>
-                      <td className="py-2 pr-3"><Frist heute={heute} datum={z.tacho_faellig} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <Karte titel="Schnellzugriff">
+            <div className="flex flex-col gap-2">
+              <Link href={`${b}/pruefpunkte`} className="flex h-12 items-center justify-center rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+                Prüfpunkte festlegen
+              </Link>
+              <Link href={`${b}/fahrer`} className="flex h-12 items-center justify-center rounded-xl border-2 border-marke-blau font-semibold text-marke-blau">
+                Fahrer hinzufügen
+              </Link>
+              <Link href={`${b}/fahrzeuge`} className="flex h-12 items-center justify-center rounded-xl border-2 border-marke-blau font-semibold text-marke-blau">
+                Fahrzeug hinzufügen
+              </Link>
             </div>
-          ) : (
-            <p className="text-gray-600">Noch keine Fahrzeuge angelegt.</p>
-          )}
-          <form action={fahrzeugAnlegen.bind(null, firmaId)} className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-3">
-            <Feld label="Kennzeichen" name="kennzeichen" placeholder="KN-BC333" autoCapitalize="characters" required />
-            <Feld label="HU fällig" name="hu_faellig" type="date" />
-            <Feld label="SP fällig" name="sp_faellig" type="date" />
-            <Feld label="Tacho-Prüfung fällig" name="tacho_faellig" type="date" />
-            <Haken label="Anhänger/Auflieger" name="ist_anhaenger" />
-            <Haken label="ADR-Fahrzeug" name="adr" />
-            <Haken label="Ladebordwand" name="ladebordwand" />
-            <Haken label="Elektro-Ameise an Bord" name="ameise" />
-            <div>
-              <Knopf>Fahrzeug hinzufügen</Knopf>
-            </div>
-          </form>
-        </Karte>
+          </Karte>
+        </aside>
       </div>
     </main>
   );
