@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Kopfleiste } from "@/components/Kopfleiste";
 import { Feld, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
+import { abmelden } from "@/app/login/actions";
 import { firmaAnlegen } from "./actions";
 
 export default async function Verwaltung() {
@@ -18,6 +19,19 @@ export default async function Verwaltung() {
     <main className="flex flex-1 flex-col">
       <Kopfleiste titel="Verkehrsleiter" untertitel="Deine Firmen" />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-5">
+        {firmen.length === 0 && (
+          <section role="status" className="flex flex-col gap-3 rounded-2xl border-2 border-marke-gelb bg-white p-5">
+            <p className="font-semibold">
+              Du bist mit <span className="break-all">{user.email}</span> angemeldet. Mit diesem Konto ist noch keine Firma als Verkehrsleiter verbunden.
+            </p>
+            <p className="text-gray-700">Hast du deine Firma mit einer anderen E-Mail-Adresse angelegt? Dann melde dich ab und mit der anderen Adresse wieder an.</p>
+            <form action={abmelden}>
+              <button type="submit" className="h-12 rounded-xl bg-marke-gelb px-5 font-semibold text-marke-blau">
+                Abmelden
+              </button>
+            </form>
+          </section>
+        )}
         {(alsFahrer ?? 0) > 0 && (
           <Link
             href="/fahrer/kontrolle"
