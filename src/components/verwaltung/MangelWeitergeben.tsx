@@ -6,7 +6,7 @@ import { fahrerText, werkstattBetreff, werkstattText, type Werkstatt } from "@/l
 type Fahrer = { id: string; vorname: string; nachname: string; email: string | null };
 
 type Props = {
-  mangel: { kennzeichen: string; frage: string; bemerkung: string | null; festgestellt: string | null; melderId: string | null };
+  mangel: { kennzeichen: string; frage: string; bemerkung: string | null; festgestellt: string | null; melderId: string | null; fotos: number };
   firma: string;
   werkstaetten: Werkstatt[];
   fahrer: Fahrer[];
@@ -73,6 +73,12 @@ export function MangelWeitergeben({ mangel, firma, werkstaetten, fahrer, letzteW
             Text
             <textarea name="text" rows={10} maxLength={5000} required defaultValue={werkstattText({ ...mangel, firma })} className={textfeld} />
           </label>
+          {mangel.fotos > 0 && (
+            <label className="flex min-h-11 items-center gap-2 text-base">
+              <input type="checkbox" name="fotos" defaultChecked className="h-5 w-5" />
+              {mangel.fotos === 1 ? "Foto der Beschädigung anhängen" : `${Math.min(mangel.fotos, 5)} Fotos der Beschädigung anhängen`}
+            </label>
+          )}
           <p className="text-sm text-gray-600">Der Kontrollbericht hängt als PDF an. Antwortet die Werkstatt, landet die Antwort in deinem E-Mail-Postfach.</p>
           <div>
             <button type="submit" className={knopf}>
