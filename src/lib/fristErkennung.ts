@@ -21,8 +21,8 @@ const HINWEIS: Record<Art, string> = {
 Mögliche Fotos: runde HU-Plakette am Kennzeichen (Jahr steht zweistellig in der Mitte, der Monat ist die Zahl, die oben bei „12 Uhr“ steht, bzw. die Stelle, an der die Plakette ausgerichtet ist), Fahrzeugschein/Zulassungsbescheinigung Teil I (Feld „HU“ bzw. „Nächste HU“, Monat/Jahr) oder ein HU-Prüfbericht („nächste HU“).`,
   sp: `Gesucht: wann die nächste Sicherheitsprüfung (SP) fällig ist.
 Mögliche Fotos: sechseckige SP-Prüfmarke (Jahr in der Mitte, Monat oben bei „12 Uhr“) oder ein SP-Prüfprotokoll („nächste SP“).`,
-  tacho: `Gesucht: wann die nächste Prüfung des Fahrtenschreibers (Tachograph, § 57b StVZO) fällig ist.
-Mögliche Fotos: Einbau-/Prüfschild (Plakette) des Fahrtenschreibers. Steht dort nur das Datum der letzten Prüfung, ist die nächste Prüfung 2 Jahre später im selben Monat.`,
+  tacho: `Gesucht: das Datum, an dem der Fahrtenschreiber (Tachograph, § 57b StVZO) zuletzt geprüft wurde (Prüftag).
+Mögliche Fotos: Einbau-/Prüfschild (Plakette) des Fahrtenschreibers, meist an der Fahrertür oder am B-Holm, oder ein Prüfprotokoll. Gib genau dieses Prüfdatum zurück und rechne nichts dazu.`,
   feuerloescher: `Gesucht: wann die nächste Prüfung des Feuerlöschers fällig ist.
 Mögliche Fotos: Prüfplakette auf dem Feuerlöscher (meist Jahr in der Mitte und markierter Monat, oft „nächste Prüfung“). Ist nur die letzte Prüfung erkennbar, ist die nächste 2 Jahre später im selben Monat.`,
   uvv_ladebordwand: `Gesucht: bis wann die UVV-Prüfung der Ladebordwand/Hubladebühne gültig ist (nächste Prüfung).
@@ -30,6 +30,16 @@ Mögliche Fotos: UVV-Prüfplakette (Jahr in der Mitte, Monat markiert oder oben 
   uvv_ameise: `Gesucht: bis wann die UVV-Prüfung des Elektro-Niederhubwagens (Ameise) bzw. Staplers gültig ist (nächste Prüfung).
 Mögliche Fotos: UVV-Prüfplakette (Jahr in der Mitte, Monat markiert oder oben bei „12 Uhr“). Ist nur die letzte Prüfung erkennbar, ist die nächste 1 Jahr später im selben Monat.`,
 };
+
+// Bei diesen Arten liest die Erkennung den Prüftag; fällig ist die nächste Prüfung so viele Jahre später.
+const JAHRE_NACH_PRUEFUNG: Partial<Record<Art, number>> = { tacho: 2 };
+
+// „2026-10-13“ + 2 Jahre → „2028-10-13“; der 29. Februar wird zum 28.
+export function jahreSpaeter(datum: string, jahre: number): string {
+  const [j, m, t] = datum.split("-").map(Number);
+  const letzter = new Date(Date.UTC(j + jahre, m, 0)).getUTCDate();
+  return `${j + jahre}-${String(m).padStart(2, "0")}-${String(Math.min(t, letzter)).padStart(2, "0")}`;
+}
 
 export function erkennungBereit() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
@@ -50,7 +60,9 @@ export function zuDatum(roh: unknown): string | null {
 }
 
 export async function fristLesen(art: Art, bild: Uint8Array): Promise<string | null> {
-  return datumLesen(`${HINWEIS[art]}\n\nPrüfung: ${ART_INFO[art].titel}.`, bild);
+  const gelesen = await datumLesen(`${HINWEIS[art]}\n\nPrüfung: ${ART_INFO[art].titel}.`, bild);
+  const jahre = JAHRE_NACH_PRUEFUNG[art];
+  return gelesen && jahre ? jahreSpaeter(gelesen, jahre) : gelesen;
 }
 
 // Datum nach einer Beschreibung (was gesucht ist, welche Fotos möglich sind) vom Foto lesen.

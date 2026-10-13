@@ -32,7 +32,12 @@ export function FristErfassen({
       auslesen={(pfad) => fristAuslesen(firmaId, fahrzeugId, art, pfad)}
       speichern={(d, foto) => fristSpeichern(fahrzeugId, art, d, foto)}
       onGespeichert={onGespeichert}
-      zusatz={ART_INFO[art].pflicht || datum ? undefined : "Freiwillig – kannst du später nachholen."}
+      zusatz={[
+        art === "tacho" ? "Fotografiere das Prüfschild. Die App liest den Prüftag und rechnet 2 Jahre dazu." : null,
+        ART_INFO[art].pflicht || datum ? null : "Freiwillig – kannst du später nachholen.",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined}
     />
   );
 }
