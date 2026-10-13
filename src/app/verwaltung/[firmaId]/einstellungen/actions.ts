@@ -46,3 +46,25 @@ export async function infosSpeichern(firmaId: string, formData: FormData) {
   revalidatePath("/fahrer", "layout");
   redirect(`${ziel}?gespeichert=1#infos`);
 }
+
+export async function geburtstagEinstellen(firmaId: string, formData: FormData) {
+  const ziel = `/verwaltung/${firmaId}/einstellungen`;
+  const aktiv = formData.get("aktiv") === "on";
+  const vorlauf = Number(formData.get("vorlauf"));
+  const text = String(formData.get("text") ?? "").trim();
+  if (!Number.isInteger(vorlauf) || vorlauf < 1 || vorlauf > 60 || text.length > 2000) {
+    redirect(`${ziel}?fehler=${encodeURIComponent("Bitte wähle gültige Werte aus.")}#geburtstag`);
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("firma_einstellungen")
+    .update({ geburtstag_aktiv: aktiv, geburtstag_vorlauf_tage: vorlauf, geburtstag_text: text || null })
+    .eq("firma_id", firmaId)
+    .select("firma_id");
+  if (error || !data?.length) {
+    redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt. Nur der Verkehrsleiter kann Einstellungen ändern.")}#geburtstag`);
+  }
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  revalidatePath("/fahrer", "layout");
+  redirect(`${ziel}?gespeichert=1#geburtstag`);
+}

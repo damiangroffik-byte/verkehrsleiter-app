@@ -4,10 +4,12 @@ import { Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter } from "@/lib/daten";
 import { VORWARNUNG_TAGE } from "@/lib/fuehrerschein/regeln";
 import { INFO_FELDER, infosBereinigen } from "@/lib/unterweisung/infos";
-import { fuehrerscheinEinstellen, infosSpeichern } from "./actions";
+import { GRUSS_PLATZHALTER, STANDARD_GRUSS, STANDARD_VORLAUF } from "@/lib/geburtstag";
+import { fuehrerscheinEinstellen, geburtstagEinstellen, infosSpeichern } from "./actions";
 
 const INTERVALLE = [1, 2, 3, 4, 6, 12];
 const VORWARNUNGEN = [7, 14, 21, 30, 45, 60];
+const VORLAEUFE = [3, 7, 14, 21, 30];
 
 export default async function EinstellungenSeite({ params, searchParams }: PageProps<"/verwaltung/[firmaId]/einstellungen">) {
   const { firmaId } = await params;
@@ -18,7 +20,7 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
   const darfAendern = firma.rolle === "verkehrsleiter";
 
   const [{ data: einstellung }, { data: infos }] = await Promise.all([
-    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage").eq("firma_id", firmaId).maybeSingle(),
+    supabase.from("firma_einstellungen").select("fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_aktiv, geburtstag_vorlauf_tage, geburtstag_text").eq("firma_id", firmaId).maybeSingle(),
     supabase.from("firma_infos").select("angaben").eq("firma_id", firmaId).maybeSingle(),
   ]);
   const angaben = infosBereinigen(infos?.angaben ?? {});
@@ -27,6 +29,8 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
   // Gespeicherte Werte, die nicht in der Auswahl stehen, trotzdem anzeigen.
   const intervalle = [...new Set([...INTERVALLE, intervall])].sort((a, b) => a - b);
   const vorwarnungen = [...new Set([...VORWARNUNGEN, vorwarnung])].sort((a, b) => a - b);
+  const vorlauf = einstellung?.geburtstag_vorlauf_tage ?? STANDARD_VORLAUF;
+  const vorlaeufe = [...new Set([...VORLAEUFE, vorlauf])].sort((a, b) => a - b);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
@@ -82,6 +86,48 @@ export default async function EinstellungenSeite({ params, searchParams }: PageP
             {darfAendern ? <Knopf>Speichern</Knopf> : <p className="text-sm text-gray-600">Ändern kann nur der Verkehrsleiter.</p>}
           </form>
         </Karte>
+
+        <div id="geburtstag" className="scroll-mt-4">
+          <Karte titel="Geburtstage">
+            <form action={geburtstagEinstellen.bind(null, firmaId)} className="flex flex-col gap-4">
+              <label className="flex min-h-11 items-center gap-3 font-semibold text-marke-blau-dunkel">
+                <input type="checkbox" name="aktiv" defaultChecked={einstellung?.geburtstag_aktiv ?? false} disabled={!darfAendern} className="h-6 w-6 accent-marke-blau" />
+                Ja, ich möchte Geburtstage nutzen
+              </label>
+              <p className="text-sm text-gray-600">
+                Freiwillig. Ist der Haken gesetzt, bekommst du vorher eine E-Mail und siehst den Geburtstag in der Übersicht. Der Fahrer bekommt an seinem Geburtstag deinen Glückwunsch in der App und per E-Mail. Dafür muss beim Fahrer das Geburtsdatum eingetragen sein.
+              </p>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Wann möchtest du informiert werden?
+                <select
+                  name="vorlauf"
+                  defaultValue={vorlauf}
+                  disabled={!darfAendern}
+                  className="h-12 rounded-xl border border-gray-300 bg-white px-3 text-base text-marke-blau-dunkel"
+                >
+                  {vorlaeufe.map((t) => (
+                    <option key={t} value={t}>
+                      {t % 7 === 0 ? `${t / 7} ${t === 7 ? "Woche" : "Wochen"} vorher` : `${t} Tage vorher`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Glückwunsch an den Fahrer
+                <textarea
+                  name="text"
+                  rows={8}
+                  maxLength={2000}
+                  defaultValue={einstellung?.geburtstag_text ?? STANDARD_GRUSS}
+                  disabled={!darfAendern}
+                  className="rounded-xl border border-gray-300 bg-white p-3 text-base text-marke-blau-dunkel"
+                />
+              </label>
+              <p className="text-sm text-gray-600">Platzhalter: {GRUSS_PLATZHALTER.join(", ")} werden automatisch ersetzt.</p>
+              {darfAendern ? <Knopf>Speichern</Knopf> : <p className="text-sm text-gray-600">Ändern kann nur der Verkehrsleiter.</p>}
+            </form>
+          </Karte>
+        </div>
 
         <div id="infos" className="scroll-mt-4">
           <Karte titel="Allgemeine Informationen für Fahrer">

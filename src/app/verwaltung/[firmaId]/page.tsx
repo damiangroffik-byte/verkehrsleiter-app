@@ -36,7 +36,7 @@ export default async function Uebersicht({ params }: PageProps<"/verwaltung/[fir
   const b = `/verwaltung/${firmaId}`;
 
   const seit = new Date(jetzt() - 36 * 3_600_000).toISOString();
-  const [{ data: fahrer }, { data: fahrzeuge }, { count: maengel }, { count: fsOffen }, { data: kontrollen }, { data: juengste }] = await Promise.all([
+  const [{ data: fahrer }, { data: fahrzeuge }, { count: maengel }, { count: fsOffen }, { data: kontrollen }, { data: juengste }, { data: einstellung }] = await Promise.all([
     supabase
       .from("fahrer")
       .select("id, vorname, nachname, geburtsdatum, fqn_gueltig_bis, adr_gueltig_bis, fahrerkarte_gueltig_bis")
@@ -59,12 +59,14 @@ export default async function Uebersicht({ params }: PageProps<"/verwaltung/[fir
       .limit(5)
       .returns<Kontrolle[]>(),
     supabase.from("kontrollen").select("durchgefuehrt_am").eq("firma_id", firmaId).gte("durchgefuehrt_am", seit).returns<{ durchgefuehrt_am: string }[]>(),
+    supabase.from("firma_einstellungen").select("geburtstag_aktiv, geburtstag_vorlauf_tage").eq("firma_id", firmaId).maybeSingle(),
   ]);
   const heuteKontrollen = (juengste ?? []).filter((k) => tag(new Date(k.durchgefuehrt_am)) === heuteTag).length;
   const fristen = fristenListe(fahrzeuge ?? [], fahrer ?? [], heuteTag).filter((f) => f.tage <= 60);
   const geburtstage = (fahrer ?? [])
     .flatMap((f) => (f.geburtsdatum ? [{ f, tage: tageBisGeburtstag(f.geburtsdatum, heuteTag), alt: wirdAlt(f.geburtsdatum, heuteTag) }] : []))
-    .filter((g) => g.tage <= 5)
+    // Mit eingeschalteten Geburtstagen so früh wie eingestellt, sonst die letzten 5 Tage vorher.
+    .filter((g) => g.tage <= (einstellung?.geburtstag_aktiv ? einstellung.geburtstag_vorlauf_tage : 5))
     .sort((a, b) => a.tage - b.tage);
 
   return (

@@ -10,11 +10,21 @@ import { unterweisungenLaden } from "./unterweisungen/daten";
 import { pruefungenLaden } from "./pruefungen/daten";
 import { datumVon, geltendeArten, stufe as fristStufe } from "@/lib/fahrzeugfristen";
 import { tag } from "@/lib/fuehrerschein/regeln";
+import { grussText, tageBisGeburtstag } from "@/lib/geburtstag";
 
 type FahrerDaten = {
   id: string;
   vorname: string;
-  firmen: { name: string; firma_einstellungen: { fuehrerschein_intervall_monate: number; fuehrerschein_vorwarnung_tage: number } | null } | null;
+  geburtsdatum: string | null;
+  firmen: {
+    name: string;
+    firma_einstellungen: {
+      fuehrerschein_intervall_monate: number;
+      fuehrerschein_vorwarnung_tage: number;
+      geburtstag_aktiv: boolean;
+      geburtstag_text: string | null;
+    } | null;
+  } | null;
 };
 type LetzteKontrolle = {
   id: string;
@@ -28,7 +38,7 @@ export default async function FahrerStart() {
   const [{ data }, { data: kontrollen }, unterweisungen, fahrzeugFristen] = await Promise.all([
     supabase
       .from("fahrer")
-      .select("id, vorname, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage))")
+      .select("id, vorname, geburtsdatum, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_aktiv, geburtstag_text))")
       .eq("user_id", user.id)
       .limit(1)
       .returns<FahrerDaten[]>(),
@@ -58,6 +68,10 @@ export default async function FahrerStart() {
         .returns<Pruefung[]>()
     : { data: null };
   const einstellung = ich?.firmen?.firma_einstellungen;
+  const gruss =
+    ich?.geburtsdatum && einstellung?.geburtstag_aktiv && tageBisGeburtstag(ich.geburtsdatum, heuteTag) === 0
+      ? grussText(einstellung.geburtstag_text, { vorname: ich.vorname, firma: ich.firmen?.name ?? "" })
+      : null;
   const uwFaellig = (unterweisungen
     ? unterweisungen.bloecke.filter((b) => blockStatus(unterweisungen.teilnahmen.filter((t) => t.unterweisung === b.schluessel), new Date(jetzt())).faellig).length
     : 0) + (unterweisungen?.infosOffen ? 1 : 0);
@@ -72,6 +86,15 @@ export default async function FahrerStart() {
     <main className="flex flex-1 flex-col">
       <Kopfleiste titel={`Hallo ${ich?.vorname ?? ""}`.trim()} untertitel={ich?.firmen?.name} />
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-5">
+        {gruss && (
+          <section className="flex flex-col gap-2 rounded-2xl bg-marke-blau p-5 text-white shadow-sm">
+            <p aria-hidden className="text-4xl">
+              🎂
+            </p>
+            <p className="font-titel text-xl font-semibold text-marke-gelb">Alles Gute zum Geburtstag!</p>
+            <p className="whitespace-pre-line">{gruss}</p>
+          </section>
+        )}
         <Link
           href="/fahrer/kontrolle"
           className="flex h-14 items-center justify-center rounded-xl bg-marke-gelb text-lg font-semibold text-marke-blau"
