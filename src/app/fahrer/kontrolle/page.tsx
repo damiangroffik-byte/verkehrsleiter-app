@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Kopfleiste } from "@/components/Kopfleiste";
 import { Karte } from "@/components/ui";
 import { holeNutzer, jetzt } from "@/lib/daten";
+import { FAHRZEUG_SPALTEN, type Art } from "@/lib/fahrzeugfristen";
 import { istWinter } from "@/lib/kontrolle/regeln";
 import { KontrollAblauf } from "./KontrollAblauf";
 import type { KontrollFahrzeug, KontrollPruefpunkt } from "./typen";
@@ -35,10 +36,10 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
   }
 
   const firmaId = aktuell.firma_id;
-  const [{ data: fahrzeuge }, { data: arten }, { data: pruefpunkte }, { data: reifen }] = await Promise.all([
+  const [{ data: fahrzeuge }, { data: arten }, { data: pruefpunkte }, { data: reifen }, { data: regeln }] = await Promise.all([
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, ist_anhaenger, adr, hu_faellig, sp_faellig, tacho_faellig, fahrzeugart_id, ladebordwand, ameise, ladebordwand_uvv_bis, ameise_uvv_bis")
+      .select(`${FAHRZEUG_SPALTEN}, adr, fahrzeugart_id`)
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
       .order("kennzeichen")
@@ -53,6 +54,7 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
       .order("reihenfolge")
       .returns<KontrollPruefpunkt[]>(),
     supabase.rpc("reifenfotos_zuletzt", { f: firmaId }),
+    supabase.from("frist_regeln").select("art, vorwarnung_tage").eq("firma_id", firmaId).returns<{ art: Art; vorwarnung_tage: number }[]>(),
   ]);
 
   const zugmaschinen = (fahrzeuge ?? []).filter((f) => !f.ist_anhaenger);
@@ -81,6 +83,7 @@ export default async function KontrolleSeite({ searchParams }: PageProps<"/fahre
         pruefpunkte={pruefpunkte ?? []}
         standardArtId={arten?.find((a) => a.name === "Standard")?.id ?? null}
         reifenZuletzt={Object.fromEntries(((reifen ?? []) as ReifenZuletzt[]).map((r) => [r.fahrzeug_id, r.zuletzt]))}
+        vorwarnung={Object.fromEntries((regeln ?? []).map((r) => [r.art, r.vorwarnung_tage]))}
         heute={heute}
         winter={istWinter(new Date(heute))}
       />

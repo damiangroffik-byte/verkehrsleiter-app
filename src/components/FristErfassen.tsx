@@ -27,12 +27,14 @@ export function FristErfassen({
   art,
   datum,
   stufe,
+  onGespeichert,
 }: {
   firmaId: string;
   fahrzeugId: string;
   art: Art;
   datum: string | null;
   stufe: Stufe;
+  onGespeichert?: (datum: string) => void;
 }) {
   const router = useRouter();
   const info = ART_INFO[art];
@@ -72,6 +74,7 @@ export function FristErfassen({
       setFehler(r.fehler);
       return;
     }
+    onGespeichert?.(wert);
     setOffen(false);
     setFotos([]);
     setWert("");

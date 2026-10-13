@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { FristErfassen } from "@/components/FristErfassen";
 import { Karte } from "@/components/ui";
+import { datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
+import { tag } from "@/lib/fuehrerschein/regeln";
 import { Unterschrift, alsPng } from "@/components/Unterschrift";
 import { kategorie, monatJahr } from "@/lib/kontrolle/kategorien";
 import { darfLosfahren, istSichtbar, pruefeEntwurf, reifenfotosFaellig, type Antwort } from "@/lib/kontrolle/regeln";
@@ -12,14 +15,18 @@ import { EIGEN, KennzeichenWahl, Termin, aufloesen } from "./FahrzeugWahl";
 import { PunktKarte, UvvZeile, inOrdnung, leer } from "./PunktKarte";
 import type { KontrollEntwurf, KontrollFahrzeug, KontrollPruefpunkt, Prueftermine } from "./typen";
 
-// fahrzeug → start (Übersicht) → eine Seite je Kategorie → abschluss → fertig
-type Schritt = "fahrzeug" | "start" | "abschluss" | "fertig" | `kategorie:${string}`;
+// fahrzeug → termine (nur wenn welche fehlen oder abgelaufen sind) → start (Übersicht) → eine Seite je Kategorie → abschluss → fertig
+type Schritt = "fahrzeug" | "termine" | "start" | "abschluss" | "fertig" | `kategorie:${string}`;
 
 type Standort = KontrollEntwurf["standort"];
 
 const keineTermine: Prueftermine = { hu: "", sp: "", tacho: "", anhaengerHu: "", anhaengerSp: "", ladebordwand: "", ameise: "" };
 
 const WINTER = "Winterliche Verhältnisse";
+
+// Wohin ein per Foto erfasster Termin im Kontroll-Entwurf gehört.
+const TERMIN_FELD: Partial<Record<Art, keyof Prueftermine>> = { hu: "hu", sp: "sp", tacho: "tacho", uvv_ladebordwand: "ladebordwand", uvv_ameise: "ameise" };
+const ANHAENGER_FELD: Partial<Record<Art, keyof Prueftermine>> = { hu: "anhaengerHu", sp: "anhaengerSp" };
 
 export function KontrollAblauf({
   firmaId,
@@ -29,6 +36,7 @@ export function KontrollAblauf({
   pruefpunkte,
   standardArtId,
   reifenZuletzt,
+  vorwarnung,
   heute,
   winter,
 }: {
@@ -39,6 +47,7 @@ export function KontrollAblauf({
   pruefpunkte: KontrollPruefpunkt[];
   standardArtId: string | null;
   reifenZuletzt: Record<string, string>;
+  vorwarnung: Partial<Record<Art, number>>;
   heute: number;
   winter: boolean;
 }) {
@@ -66,6 +75,8 @@ export function KontrollAblauf({
   const [fehler, setFehler] = useState<{ text: string; pruefpunktId?: string } | null>(null);
   const [sendet, setSendet] = useState(false);
   const [ergebnis, setErgebnis] = useState<{ mitMangel: boolean; freigegeben: boolean } | null>(null);
+  // In dieser Kontrolle per Foto erfasste Termine („fahrzeugId:art“ → Datum), bis die Seite neu geladen ist.
+  const [erfasst, setErfasst] = useState<Record<string, string>>({});
 
   const ordner = `${firmaId}/${kontrolleId}`;
   const fz = aufloesen(wahl, eingabe, fahrzeuge, anhaenger, "ein Fahrzeug");
@@ -74,6 +85,24 @@ export function KontrollAblauf({
   const gewaehlterAnhaenger = anh?.fahrzeug ?? null;
   const fahrzeugBereit = Boolean(fz && !fz.fehler);
   const reifenFaellig = fahrzeugBereit ? reifenfotosFaellig(fahrzeug ? (reifenZuletzt[fahrzeug.id] ?? null) : null, new Date(heute)) : false;
+
+  // Prüftermine der gewählten Fahrzeuge aus der Liste; Ladebordwand und Ameise so, wie der Fahrer sie heute angibt.
+  const fristFahrzeuge: FristFahrzeug[] = [
+    ...(fahrzeug ? [{ ...fahrzeug, ladebordwand: ausstattung.ladebordwand, ameise: ausstattung.ameise }] : []),
+    ...(gewaehlterAnhaenger ? [gewaehlterAnhaenger] : []),
+  ];
+  const heuteTag = tag(new Date(heute));
+  const fristDatum = (f: FristFahrzeug, a: Art) => erfasst[`${f.id}:${a}`] ?? datumVon(f, a);
+  const fristStufe = (f: FristFahrzeug, a: Art) => stufe(fristDatum(f, a), heuteTag, vorwarnung[a] ?? standardRegel(a).vorwarnung_tage);
+  const fristen = fristFahrzeuge.flatMap((f) => geltendeArten(f).map((a) => ({ f, a, stufe: fristStufe(f, a) })));
+  const fristenFehlen = fristen.filter((x) => x.stufe === "fehlt").length;
+  const fristenOffen = fristen.filter((x) => x.stufe === "fehlt" || x.stufe === "rot").length;
+
+  function fristGespeichert(f: FristFahrzeug, a: Art, datum: string) {
+    setErfasst((e) => ({ ...e, [`${f.id}:${a}`]: datum }));
+    const feld = (f.id === gewaehlterAnhaenger?.id ? ANHAENGER_FELD : TERMIN_FELD)[a];
+    if (feld) setTermine((t) => ({ ...t, [feld]: feld === "ladebordwand" || feld === "ameise" ? datum.slice(0, 7) : datum }));
+  }
 
   // Prüftermine und Ausstattung mit den bekannten Werten vorbelegen, sobald ein anderes Fahrzeug gewählt ist.
   const fzSchluessel = fahrzeug?.id ?? null;
@@ -144,19 +173,24 @@ export function KontrollAblauf({
     }
   }
 
-  // Fehlt etwas im ersten Schritt (Fahrzeug, Anhänger, Prüftermine)?
+  // Fehlt etwas im ersten Schritt (Fahrzeug, Anhänger, Termine selbst eingetippter Fahrzeuge)?
   function fahrzeugFehler(): string | null {
     if (!fz) return "Bitte wähle ein Fahrzeug oder tippe das Kennzeichen ein.";
     if (fz.fehler) return fz.fehler;
     if (anh?.fehler) return anh.fehler;
     const pflicht: [keyof Prueftermine, string][] = [
-      ["hu", "HU"],
-      ["sp", "SP"],
-      ["tacho", "Tacho-Prüfung"],
-      ...(anh ? ([["anhaengerHu", "HU des Anhängers"], ["anhaengerSp", "SP des Anhängers"]] as [keyof Prueftermine, string][]) : []),
+      ...(!fahrzeug ? ([["hu", "HU"], ["sp", "SP"], ["tacho", "Tacho-Prüfung"]] as [keyof Prueftermine, string][]) : []),
+      ...(anh && !gewaehlterAnhaenger ? ([["anhaengerHu", "HU des Anhängers"], ["anhaengerSp", "SP des Anhängers"]] as [keyof Prueftermine, string][]) : []),
     ];
     const fehlt = pflicht.find(([k]) => !termine[k]);
     return fehlt ? `Bitte trage den Termin für ${fehlt[1]} ein.` : null;
+  }
+
+  function termineFehler(): string | null {
+    if (fristenFehlen === 0) return null;
+    return fristenFehlen === 1
+      ? "Ein Prüftermin fehlt noch. Bitte mach ein Foto der Plakette oder trage das Datum ein und tippe auf Speichern."
+      : `${fristenFehlen} Prüftermine fehlen noch. Bitte mach Fotos der Plaketten oder trage die Daten ein und tippe jeweils auf Speichern.`;
   }
 
   // UVV-Prüfplakette fehlt?
@@ -168,9 +202,21 @@ export function KontrollAblauf({
     return null;
   }
 
-  function weiterZurUebersicht() {
+  function weiterNachFahrzeug() {
     const f = fahrzeugFehler();
     if (f) return zeigeFehler(f);
+    // Sind alle Termine bekannt und gültig, wird der Foto-Schritt übersprungen.
+    if (fristenOffen > 0) return gehe("termine");
+    zurUebersicht();
+  }
+
+  function weiterNachTerminen() {
+    const f = termineFehler();
+    if (f) return zeigeFehler(f);
+    zurUebersicht();
+  }
+
+  function zurUebersicht() {
     // Standort im Hintergrund holen; lehnt der Fahrer ab, geht es ohne weiter.
     if (!standort && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -203,6 +249,11 @@ export function KontrollAblauf({
     if (vorn) {
       setSchritt("fahrzeug");
       return zeigeFehler(vorn);
+    }
+    const termin = termineFehler();
+    if (termin) {
+      setSchritt("termine");
+      return zeigeFehler(termin);
     }
     const f = pruefeEntwurf({ fahrzeugId: EIGEN, antworten, unterschrieben: Boolean(unterschrift) }, sichtbare, reifenFaellig);
     if (f) return zeigeFehler(f.text, f.feld === "pruefpunkt" ? f.pruefpunktId : undefined);
@@ -257,7 +308,8 @@ export function KontrollAblauf({
       };
       const antwort = await kontrolleEinreichen(entwurf);
       if (!antwort.ok) {
-        if (antwort.feld === "fristen" || antwort.feld === "fahrzeug" || antwort.feld === "anhaenger") setSchritt("fahrzeug");
+        if (antwort.feld === "fahrzeug" || antwort.feld === "anhaenger") setSchritt("fahrzeug");
+        if (antwort.feld === "fristen") setSchritt(fahrzeug ? "termine" : "fahrzeug");
         if (antwort.feld === "uvv") setSchritt(`kategorie:${namen.find((n) => kategorie(n).uvv) ?? namen[0]}`);
         const punkt = antwort.feld?.startsWith("pruefpunkt:") ? antwort.feld.slice("pruefpunkt:".length) : undefined;
         return zeigeFehler(antwort.fehler, punkt);
@@ -339,13 +391,33 @@ export function KontrollAblauf({
             </Karte>
 
             <Karte titel="Prüftermine">
-              <p className="text-sm text-gray-600">Bitte prüfe die Termine und trage sie ein, wenn sie fehlen oder nicht stimmen.</p>
-              <div className="grid grid-cols-1 gap-3">
-                <Termin name="HU" wert={termine.hu} onChange={(hu) => setTermine((t) => ({ ...t, hu }))} heute={heute} />
-                <Termin name="SP" wert={termine.sp} onChange={(sp) => setTermine((t) => ({ ...t, sp }))} heute={heute} />
-                <Termin name="Tacho-Prüfung" wert={termine.tacho} onChange={(tacho) => setTermine((t) => ({ ...t, tacho }))} heute={heute} />
-              </div>
-              {anh && (
+              {fristFahrzeuge.length > 0 && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className={`text-sm ${fristenOffen > 0 ? "font-semibold text-mangel" : "text-ok"}`}>
+                    {fristenFehlen > 0
+                      ? `${fristenFehlen === 1 ? "1 Termin fehlt" : `${fristenFehlen} Termine fehlen`} – im nächsten Schritt einmal die Plaketten fotografieren.`
+                      : fristenOffen > 0
+                        ? "Ein Termin ist abgelaufen – bitte im nächsten Schritt prüfen."
+                        : "✓ Alle Prüftermine sind gespeichert."}
+                  </p>
+                  {fristenOffen === 0 && (
+                    <button type="button" onClick={() => gehe("termine")} className="min-h-11 shrink-0 px-2 text-sm font-semibold text-marke-blau underline">
+                      Ansehen
+                    </button>
+                  )}
+                </div>
+              )}
+              {!fahrzeug && (
+                <>
+                  <p className="text-sm text-gray-600">Bitte trage die Termine für {fz.kennzeichen} ein.</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    <Termin name="HU" wert={termine.hu} onChange={(hu) => setTermine((t) => ({ ...t, hu }))} heute={heute} />
+                    <Termin name="SP" wert={termine.sp} onChange={(sp) => setTermine((t) => ({ ...t, sp }))} heute={heute} />
+                    <Termin name="Tacho-Prüfung" wert={termine.tacho} onChange={(tacho) => setTermine((t) => ({ ...t, tacho }))} heute={heute} />
+                  </div>
+                </>
+              )}
+              {anh && !gewaehlterAnhaenger && (
                 <>
                   <p className="pt-2 text-sm font-semibold">Anhänger {anh.kennzeichen}</p>
                   <div className="grid grid-cols-1 gap-3">
@@ -358,8 +430,47 @@ export function KontrollAblauf({
           </>
         )}
 
-        <button type="button" onClick={weiterZurUebersicht} className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+        <button type="button" onClick={weiterNachFahrzeug} className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau">
           Weiter
+        </button>
+      </div>
+    );
+  }
+
+  if (schritt === "termine") {
+    return (
+      <div className="flex flex-col gap-4">
+        {fehlerZeile}
+        <div className="flex flex-col gap-1">
+          <h2 className="font-titel text-lg font-semibold">PRÜFTERMINE</h2>
+          <p className="text-gray-700">
+            {fristenFehlen > 0
+              ? "Mach einmal ein Foto von jeder Plakette. Die App liest das Datum und merkt es sich. Beim nächsten Mal wird dieser Schritt übersprungen."
+              : "Alle Termine sind gespeichert. Hast du eine neue Plakette, tippe auf „Neu erfassen“."}
+          </p>
+        </div>
+        {fristFahrzeuge.map((f) => (
+          <Karte key={f.id} titel={`${f.kennzeichen}${f.ist_anhaenger ? " (Anhänger)" : ""}`}>
+            <ul className="flex flex-col gap-2">
+              {geltendeArten(f).map((a) => (
+                <FristErfassen
+                  key={a}
+                  firmaId={firmaId}
+                  fahrzeugId={f.id}
+                  art={a}
+                  datum={fristDatum(f, a)}
+                  stufe={fristStufe(f, a)}
+                  onGespeichert={(datum) => fristGespeichert(f, a, datum)}
+                />
+              ))}
+            </ul>
+          </Karte>
+        ))}
+        <button type="button" onClick={weiterNachTerminen} className="h-12 rounded-xl bg-marke-gelb font-semibold text-marke-blau">
+          Weiter zur Kontrolle
+        </button>
+        <button type="button" onClick={() => gehe("fahrzeug")} className="h-11 text-sm underline">
+          Zurück
         </button>
       </div>
     );
