@@ -66,12 +66,14 @@ export function MangelEintrag({
   zurueck,
   mitKennzeichen = true,
   weitergabe,
+  nummer,
 }: {
   m: Mangel;
   firmaId: string;
   zurueck: string;
   mitKennzeichen?: boolean;
   weitergabe?: Weitergabe;
+  nummer?: number;
 }) {
   const offen = m.status === "offen";
   const nachrichten = (weitergabe?.nachrichten ?? []).filter((n) => n.mangel_id === m.id);
@@ -90,14 +92,21 @@ export function MangelEintrag({
     </span>
   );
   return (
-    <li className="flex flex-col gap-3 py-3">
-      {m.kontrolle ? (
-        <PdfKnopf href={`/kontrolle/${m.kontrolle.id}/pdf`} className="flex min-h-11 w-full items-start">
-          {titel}
-        </PdfKnopf>
-      ) : (
-        titel
-      )}
+    <li className={`flex flex-col gap-3 rounded-2xl border-2 border-l-8 border-gray-200 bg-white p-4 ${offen ? "border-l-mangel" : "border-l-ok"}`}>
+      <div className="flex items-start gap-3">
+        {nummer !== undefined && (
+          <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-semibold text-white ${offen ? "bg-mangel" : "bg-ok"}`}>
+            {nummer}
+          </span>
+        )}
+        {m.kontrolle ? (
+          <PdfKnopf href={`/kontrolle/${m.kontrolle.id}/pdf`} className="flex min-h-11 min-w-0 flex-1 items-start">
+            {titel}
+          </PdfKnopf>
+        ) : (
+          titel
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={`rounded-md px-2 py-1 text-sm font-semibold ${offen ? "bg-mangel/10 text-mangel" : "bg-ok/10 text-ok"}`}
@@ -125,7 +134,7 @@ export function MangelEintrag({
         </ul>
       )}
       {offen && weitergabe && m.fahrzeug && m.antwort && (
-        <>
+        <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
           {weitergabe.werkstaetten.length === 0 && (
             <p className="text-sm text-gray-600">
               Tipp: Unter{" "}
@@ -151,24 +160,24 @@ export function MangelEintrag({
             werkstattAktion={mailAnWerkstatt.bind(null, firmaId, m.id, zurueck)}
             fahrerAktion={fahrerInformieren.bind(null, firmaId, m.id, zurueck)}
           />
-        </>
+        </div>
       )}
       {offen ? (
-        <form action={mangelStatus.bind(null, firmaId, m.id, true, zurueck)} className="flex flex-wrap gap-2">
+        <form action={mangelStatus.bind(null, firmaId, m.id, true, zurueck)} className="flex flex-col gap-2 border-t border-gray-200 pt-3">
           <input
             name="vermerk"
             maxLength={500}
-            placeholder="Notiz (freiwillig), z. B. Reifen gewechselt"
+            placeholder="Notiz (freiwillig)"
             aria-label="Notiz zum Erledigen"
-            className="h-11 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-base"
+            className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base"
           />
-          <button type="submit" className="h-11 rounded-xl bg-marke-gelb px-4 font-semibold text-marke-blau">
+          <button type="submit" className="h-12 w-full rounded-xl bg-marke-gelb px-4 font-semibold text-marke-blau">
             Als erledigt markieren
           </button>
         </form>
       ) : (
         <form action={mangelStatus.bind(null, firmaId, m.id, false, zurueck)}>
-          <button type="submit" className="h-11 text-sm font-semibold text-marke-blau underline">
+          <button type="submit" className="h-12 w-full rounded-xl border-2 border-marke-blau px-4 font-semibold text-marke-blau">
             Wieder auf offen setzen
           </button>
         </form>
