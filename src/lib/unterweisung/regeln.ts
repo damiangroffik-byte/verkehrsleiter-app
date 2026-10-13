@@ -83,3 +83,10 @@ export function seiten(abschnitte: number, fragen: number): Seite[] {
   }
   return r;
 }
+
+export type Auswahl = { unterweisung: string; aktiv: boolean };
+
+// Gilt ein Block für den Fahrer? Eigene Zuordnung vor Firmen-Auswahl, ohne beides aktiv.
+export function blockAktiv(schluessel: string, firma: Auswahl[], fahrer: Auswahl[]) {
+  return fahrer.find((a) => a.unterweisung === schluessel)?.aktiv ?? firma.find((a) => a.unterweisung === schluessel)?.aktiv ?? true;
+}

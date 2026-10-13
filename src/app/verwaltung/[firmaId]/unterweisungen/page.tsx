@@ -6,11 +6,12 @@ import { StatusZeile } from "@/components/StatusZeile";
 import { Karte } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
 import { infosBereinigen } from "@/lib/unterweisung/infos";
-import { BESTEHEN_PROZENT, blockStatus, type Teilnahme, type Unterweisung } from "@/lib/unterweisung/regeln";
+import { BESTEHEN_PROZENT, blockAktiv, blockStatus, type Auswahl, type Teilnahme, type Unterweisung } from "@/lib/unterweisung/regeln";
 import { unterweisungSchalten } from "./actions";
 
 type Fahrer = { id: string; vorname: string; nachname: string; user_id: string | null };
 type FirmaTeilnahme = Teilnahme & { fahrer_id: string };
+type Zuordnung = Auswahl & { fahrer_id: string };
 
 export default async function UnterweisungenVerwaltung({ params, searchParams }: PageProps<"/verwaltung/[firmaId]/unterweisungen">) {
   const { firmaId } = await params;
@@ -21,10 +22,11 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
   const darfAendern = firma.rolle === "verkehrsleiter";
   const heute = new Date(jetzt());
 
-  const [{ data: fahrer }, { data: bloecke }, { data: auswahl }, { data: teilnahmen }, { data: infos }, { data: bestaetigungen }] = await Promise.all([
+  const [{ data: fahrer }, { data: bloecke }, { data: auswahl }, { data: zuordnung }, { data: teilnahmen }, { data: infos }, { data: bestaetigungen }] = await Promise.all([
     supabase.from("fahrer").select("id, vorname, nachname, user_id").eq("firma_id", firmaId).eq("aktiv", true).order("nachname").returns<Fahrer[]>(),
     supabase.from("unterweisungen").select("schluessel, titel, kurz, symbol, dauer_min").order("reihenfolge").returns<Unterweisung[]>(),
-    supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", firmaId).returns<{ unterweisung: string; aktiv: boolean }[]>(),
+    supabase.from("firma_unterweisungen").select("unterweisung, aktiv").eq("firma_id", firmaId).returns<Auswahl[]>(),
+    supabase.from("fahrer_unterweisungen").select("fahrer_id, unterweisung, aktiv").eq("firma_id", firmaId).returns<Zuordnung[]>(),
     supabase
       .from("unterweisung_teilnahmen")
       .select("id, fahrer_id, unterweisung, durchgefuehrt_am, prozent, bestanden, unterschrieben_am, gueltig_bis")
@@ -44,10 +46,11 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
   const bestaetigtAm = (fahrerId: string) =>
     (bestaetigungen ?? []).find((x) => x.fahrer_id === fahrerId && infos && Date.parse(x.stand) >= Date.parse(infos.geaendert_am))?.bestaetigt_am ?? null;
   const aus = new Set((auswahl ?? []).filter((a) => !a.aktiv).map((a) => a.unterweisung));
-  const aktive = (bloecke ?? []).filter((b) => !aus.has(b.schluessel));
 
   const liste = (fahrer ?? []).map((f) => {
     const eigene = (teilnahmen ?? []).filter((t) => t.fahrer_id === f.id);
+    const zugeordnet = (zuordnung ?? []).filter((z) => z.fahrer_id === f.id);
+    const aktive = (bloecke ?? []).filter((b) => blockAktiv(b.schluessel, auswahl ?? [], zugeordnet));
     const status = aktive.map((b) => {
       const versuche = eigene.filter((t) => t.unterweisung === b.schluessel);
       return { b, s: blockStatus(versuche, heute), versuche: versuche.length };
@@ -56,7 +59,7 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
     return { f, status, gelesen, offen: status.filter((x) => x.s.faellig).length + (hatInfos && !gelesen ? 1 : 0) };
   });
   liste.sort((a, b) => b.offen - a.offen);
-  const gesamt = liste.length * (aktive.length + (hatInfos ? 1 : 0));
+  const gesamt = liste.reduce((n, x) => n + x.status.length + (hatInfos ? 1 : 0), 0);
   const erledigt = gesamt - liste.reduce((n, x) => n + x.offen, 0);
 
   return (
@@ -74,7 +77,7 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
               {erledigt} von {gesamt}
             </p>
             <p>
-              erledigt ({liste.length} Fahrer × {aktive.length} Blöcke{hatInfos ? " + Lesebestätigung" : ""})
+              erledigt ({liste.length} Fahrer, je nach Zuordnung{hatInfos ? " + Lesebestätigung" : ""})
             </p>
           </section>
           {liste.length === 0 && (
@@ -86,7 +89,9 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
             <section key={f.id} className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-titel text-lg font-semibold">
-                  {f.vorname} {f.nachname}
+                  <Link href={`/verwaltung/${firmaId}/fahrer/${f.id}#unterweisungen`} className="underline-offset-2 hover:underline">
+                    {f.vorname} {f.nachname}
+                  </Link>
                 </h2>
                 <span className={`text-sm font-semibold ${offen > 0 ? "text-mangel" : "text-ok"}`}>
                   {offen === 0 ? "alles erledigt" : `${offen} offen`}
@@ -131,6 +136,9 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
                   </li>
                 ))}
               </ul>
+              <Link href={`/verwaltung/${firmaId}/fahrer/${f.id}#unterweisungen`} className="flex min-h-11 items-center text-sm font-semibold text-marke-blau underline">
+                Unterweisungen für {f.vorname} zuordnen
+              </Link>
             </section>
           ))}
         </div>
@@ -141,6 +149,7 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
               <li>Der Fahrer liest jeden Block in der App.</li>
               <li>Danach Test mit 10 Fragen, mindestens {BESTEHEN_PROZENT} % richtig. Wiederholen ist jederzeit möglich.</li>
               <li>Nach bestandenem Test unterschreibt er in der App.</li>
+              <li>Welche Blöcke ein Fahrer braucht, stellst du beim Fahrer ein. Ohne Einstellung gilt die Auswahl der Firma.</li>
               <li>Gültig für ein Jahr. 30 Tage vorher wird er als „bald fällig“ angezeigt.</li>
               <li>Zu jeder Unterweisung gibt es einen Nachweis als PDF.</li>
               <li>Die allgemeinen Informationen bestätigt der Fahrer als gelesen. Änderst du sie, muss er neu bestätigen.</li>
@@ -152,9 +161,11 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
               {darfAendern ? "Informationen eintragen" : "Informationen ansehen"}
             </Link>
           </Karte>
-          <Karte titel="Blöcke für diese Firma">
+          <Karte titel="Standard für alle Fahrer">
             <p className="text-sm text-gray-600">
-              {darfAendern ? "Ausgeschaltete Blöcke sehen die Fahrer nicht." : "Nur der Verkehrsleiter kann Blöcke ein- oder ausschalten."}
+              {darfAendern
+                ? "Gilt für jeden Fahrer, bei dem du nichts anderes zugeordnet hast. Einzelne Fahrer änderst du beim Fahrer."
+                : "Nur der Verkehrsleiter kann den Standard ändern. Einzelne Fahrer änderst du beim Fahrer."}
             </p>
             <ul className="flex flex-col">
               {(bloecke ?? []).map((b) => {

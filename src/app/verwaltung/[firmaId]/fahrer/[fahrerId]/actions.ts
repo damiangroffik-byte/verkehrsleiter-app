@@ -35,3 +35,20 @@ export async function fahrerSpeichern(firmaId: string, fahrerId: string, formDat
   revalidatePath(`/verwaltung/${firmaId}`, "layout");
   redirect(`${ziel}?gespeichert=1`);
 }
+
+// Unterweisung für einen Fahrer ein- oder ausschalten. Entspricht der Wert dem Standard der Firma,
+// wird die eigene Zuordnung gelöscht, damit spätere Änderungen am Standard wieder greifen.
+export async function fahrerUnterweisungSchalten(firmaId: string, fahrerId: string, schluessel: string, aktiv: boolean, standard: boolean) {
+  const ziel = `/verwaltung/${firmaId}/fahrer/${fahrerId}`;
+  const supabase = await createClient();
+  const { error } =
+    aktiv === standard
+      ? await supabase.from("fahrer_unterweisungen").delete().eq("fahrer_id", fahrerId).eq("unterweisung", schluessel)
+      : await supabase
+          .from("fahrer_unterweisungen")
+          .upsert({ firma_id: firmaId, fahrer_id: fahrerId, unterweisung: schluessel, aktiv }, { onConflict: "fahrer_id,unterweisung" });
+  if (error) redirect(`${ziel}?fehler=${encodeURIComponent("Speichern hat nicht geklappt. Bitte noch einmal versuchen.")}#unterweisungen`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
+  revalidatePath("/fahrer", "layout");
+  redirect(`${ziel}#unterweisungen`);
+}
