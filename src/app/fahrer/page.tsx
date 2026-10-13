@@ -14,12 +14,12 @@ type FahrerDaten = {
   id: string;
   vorname: string;
   geburtsdatum: string | null;
+  geburtstag_gruss: boolean;
   firmen: {
     name: string;
     firma_einstellungen: {
       fuehrerschein_intervall_monate: number;
       fuehrerschein_vorwarnung_tage: number;
-      geburtstag_aktiv: boolean;
       geburtstag_text: string | null;
     } | null;
   } | null;
@@ -36,7 +36,7 @@ export default async function FahrerStart() {
   const [{ data }, { data: kontrollen }, unterweisungen] = await Promise.all([
     supabase
       .from("fahrer")
-      .select("id, vorname, geburtsdatum, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_aktiv, geburtstag_text))")
+      .select("id, vorname, geburtsdatum, geburtstag_gruss, firmen(name, firma_einstellungen(fuehrerschein_intervall_monate, fuehrerschein_vorwarnung_tage, geburtstag_text))")
       .eq("user_id", user.id)
       .limit(1)
       .returns<FahrerDaten[]>(),
@@ -62,8 +62,8 @@ export default async function FahrerStart() {
     : { data: null };
   const einstellung = ich?.firmen?.firma_einstellungen;
   const gruss =
-    ich?.geburtsdatum && einstellung?.geburtstag_aktiv && tageBisGeburtstag(ich.geburtsdatum, heuteTag) === 0
-      ? grussText(einstellung.geburtstag_text, { vorname: ich.vorname, firma: ich.firmen?.name ?? "" })
+    ich?.geburtsdatum && ich.geburtstag_gruss && tageBisGeburtstag(ich.geburtsdatum, heuteTag) === 0
+      ? grussText(einstellung?.geburtstag_text ?? null, { vorname: ich.vorname, firma: ich.firmen?.name ?? "" })
       : null;
   const uwFaellig = (unterweisungen
     ? unterweisungen.bloecke.filter((b) => blockStatus(unterweisungen.teilnahmen.filter((t) => t.unterweisung === b.schluessel), new Date(jetzt())).faellig).length

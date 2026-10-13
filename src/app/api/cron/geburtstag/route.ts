@@ -7,7 +7,7 @@ import { sendeMail } from "@/lib/mail";
 type Einstellung = { firma_id: string; geburtstag_vorlauf_tage: number; geburtstag_text: string | null; firmen: { name: string } | null };
 type Fahrer = { id: string; vorname: string; nachname: string; email: string | null; geburtsdatum: string };
 
-// Täglich (Vercel Cron), nur für Firmen mit eingeschalteten Geburtstagen:
+// Täglich (Vercel Cron), nur für Fahrer, bei denen Geburtstage eingeschaltet sind:
 // Hinweis an die Verwaltung ab dem eingestellten Vorlauf, Glückwunsch an den Fahrer am Geburtstag. Je Geburtstag einmal.
 export async function GET(request: Request) {
   if (!automatikBereit()) return Response.json({ fehler: "nicht eingerichtet" }, { status: 503 });
@@ -18,7 +18,6 @@ export async function GET(request: Request) {
   const { data: firmen, error } = await db
     .from("firma_einstellungen")
     .select("firma_id, geburtstag_vorlauf_tage, geburtstag_text, firmen(name)")
-    .eq("geburtstag_aktiv", true)
     .returns<Einstellung[]>();
   if (error) return Response.json({ fehler: error.message }, { status: 500 });
 
@@ -48,6 +47,7 @@ export async function GET(request: Request) {
       .select("id, vorname, nachname, email, geburtsdatum")
       .eq("firma_id", e.firma_id)
       .eq("aktiv", true)
+      .eq("geburtstag_gruss", true)
       .not("geburtsdatum", "is", null)
       .returns<Fahrer[]>();
     const anstehend = (fahrer ?? []).filter((f) => tageBisGeburtstag(f.geburtsdatum, heute) <= e.geburtstag_vorlauf_tage);

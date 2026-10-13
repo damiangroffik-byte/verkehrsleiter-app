@@ -23,6 +23,7 @@ export async function fahrerSpeichern(firmaId: string, fahrerId: string, formDat
       nachname,
       telefon: wert(formData, "telefon"),
       geburtsdatum: wert(formData, "geburtsdatum"),
+      geburtstag_gruss: formData.get("geburtstag_gruss") === "on",
       fqn_gueltig_bis: wert(formData, "fqn_gueltig_bis"),
       adr_gueltig_bis: wert(formData, "adr_gueltig_bis"),
       fahrerkarte_gueltig_bis: wert(formData, "fahrerkarte_gueltig_bis"),
