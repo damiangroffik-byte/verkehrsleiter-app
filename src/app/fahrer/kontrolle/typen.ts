@@ -1,18 +1,9 @@
+import type { FristFahrzeug } from "@/lib/fahrzeugfristen";
 import type { Pruefpunkt } from "@/lib/kontrolle/regeln";
 
-export type KontrollFahrzeug = {
-  id: string;
-  kennzeichen: string;
-  ist_anhaenger: boolean;
+export type KontrollFahrzeug = FristFahrzeug & {
   adr: boolean;
-  hu_faellig: string | null;
-  sp_faellig: string | null;
-  tacho_faellig: string | null;
   fahrzeugart_id: string | null;
-  ladebordwand: boolean;
-  ameise: boolean;
-  ladebordwand_uvv_bis: string | null;
-  ameise_uvv_bis: string | null;
 };
 
 export type KontrollPruefpunkt = Pruefpunkt & { fahrzeugart_id: string };
