@@ -32,6 +32,7 @@ export function FristErfassen({
       auslesen={(pfad) => fristAuslesen(firmaId, fahrzeugId, art, pfad)}
       speichern={(d, foto) => fristSpeichern(fahrzeugId, art, d, foto)}
       onGespeichert={onGespeichert}
+      zusatz={ART_INFO[art].pflicht || datum ? undefined : "Freiwillig – kannst du später nachholen."}
     />
   );
 }

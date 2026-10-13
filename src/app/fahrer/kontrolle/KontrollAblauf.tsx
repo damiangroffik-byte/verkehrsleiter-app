@@ -7,7 +7,7 @@ import { NachweisErfassen } from "@/components/NachweisErfassen";
 import { FuehrerscheinFormular } from "@/app/fahrer/fuehrerschein/FuehrerscheinFormular";
 import { NACHWEISE, NACHWEIS_INFO, nachweisDatum, type Nachweis, type NachweisFahrer } from "@/lib/fahrerNachweise";
 import { Karte } from "@/components/ui";
-import { datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
+import { ART_INFO, datumVon, geltendeArten, standardRegel, stufe, type Art, type FristFahrzeug } from "@/lib/fahrzeugfristen";
 import { tag } from "@/lib/fuehrerschein/regeln";
 import { Unterschrift, alsPng } from "@/components/Unterschrift";
 import { kategorie, monatJahr } from "@/lib/kontrolle/kategorien";
@@ -116,8 +116,11 @@ export function KontrollAblauf({
     const s = !NACHWEIS_INFO[a].pflicht && !d ? "ok" : stufe(d, heuteTag, nachweisVorwarnung);
     return { a, datum: d, stufe: s };
   });
-  const fristenFehlen = fristen.filter((x) => x.stufe === "fehlt").length + nachweisListe.filter((x) => x.stufe === "fehlt").length + (fsDa ? 0 : 1);
-  const fristenOffen = fristenFehlen + fristen.filter((x) => x.stufe === "rot").length + nachweisListe.filter((x) => x.stufe === "rot").length;
+  // Pflicht: Führerschein, Fahrerkarte, Code 95/FQN und HU. SP, Tacho usw. kann der Fahrer später nachholen.
+  const fristenFehlen =
+    fristen.filter((x) => x.stufe === "fehlt" && ART_INFO[x.a].pflicht).length + nachweisListe.filter((x) => x.stufe === "fehlt").length + (fsDa ? 0 : 1);
+  const freiwilligFehlen = fristen.filter((x) => x.stufe === "fehlt" && !ART_INFO[x.a].pflicht).length;
+  const fristenOffen = fristenFehlen + freiwilligFehlen + fristen.filter((x) => x.stufe === "rot").length + nachweisListe.filter((x) => x.stufe === "rot").length;
 
   function fristGespeichert(f: FristFahrzeug, a: Art, datum: string) {
     setErfasst((e) => ({ ...e, [`${f.id}:${a}`]: datum }));
@@ -200,8 +203,8 @@ export function KontrollAblauf({
     if (fz.fehler) return fz.fehler;
     if (anh?.fehler) return anh.fehler;
     const pflicht: [keyof Prueftermine, string][] = [
-      ...(!fahrzeug ? ([["hu", "HU"], ["sp", "SP"], ["tacho", "Tacho-Prüfung"]] as [keyof Prueftermine, string][]) : []),
-      ...(anh && !gewaehlterAnhaenger ? ([["anhaengerHu", "HU des Anhängers"], ["anhaengerSp", "SP des Anhängers"]] as [keyof Prueftermine, string][]) : []),
+      ...(!fahrzeug ? ([["hu", "HU"]] as [keyof Prueftermine, string][]) : []),
+      ...(anh && !gewaehlterAnhaenger ? ([["anhaengerHu", "HU des Anhängers"]] as [keyof Prueftermine, string][]) : []),
     ];
     const fehlt = pflicht.find(([k]) => !termine[k]);
     return fehlt ? `Bitte trage den Termin für ${fehlt[1]} ein.` : null;
@@ -417,7 +420,9 @@ export function KontrollAblauf({
                 <p className={`text-sm ${fristenOffen > 0 ? "font-semibold text-mangel" : "text-ok"}`}>
                   {fristenFehlen > 0
                     ? `${fristenFehlen === 1 ? "1 Angabe fehlt" : `${fristenFehlen} Angaben fehlen`} – im nächsten Schritt einmal fotografieren.`
-                    : fristenOffen > 0
+                    : freiwilligFehlen > 0
+                      ? "Einige Prüftermine fehlen noch – im nächsten Schritt fotografieren oder später nachholen."
+                      : fristenOffen > 0
                       ? "Etwas ist abgelaufen – bitte im nächsten Schritt prüfen."
                       : "✓ Alle Prüftermine und Nachweise sind gespeichert."}
                 </p>
@@ -432,8 +437,8 @@ export function KontrollAblauf({
                   <p className="text-sm text-gray-600">Bitte trage die Termine für {fz.kennzeichen} ein.</p>
                   <div className="grid grid-cols-1 gap-3">
                     <Termin name="HU" wert={termine.hu} onChange={(hu) => setTermine((t) => ({ ...t, hu }))} heute={heute} />
-                    <Termin name="SP" wert={termine.sp} onChange={(sp) => setTermine((t) => ({ ...t, sp }))} heute={heute} />
-                    <Termin name="Tacho-Prüfung" wert={termine.tacho} onChange={(tacho) => setTermine((t) => ({ ...t, tacho }))} heute={heute} />
+                    <Termin name="SP (freiwillig)" wert={termine.sp} onChange={(sp) => setTermine((t) => ({ ...t, sp }))} heute={heute} />
+                    <Termin name="Tacho-Prüfung (freiwillig)" wert={termine.tacho} onChange={(tacho) => setTermine((t) => ({ ...t, tacho }))} heute={heute} />
                   </div>
                 </>
               )}
@@ -442,7 +447,7 @@ export function KontrollAblauf({
                   <p className="pt-2 text-sm font-semibold">Anhänger {anh.kennzeichen}</p>
                   <div className="grid grid-cols-1 gap-3">
                     <Termin name="HU" wert={termine.anhaengerHu} onChange={(anhaengerHu) => setTermine((t) => ({ ...t, anhaengerHu }))} heute={heute} />
-                    <Termin name="SP" wert={termine.anhaengerSp} onChange={(anhaengerSp) => setTermine((t) => ({ ...t, anhaengerSp }))} heute={heute} />
+                    <Termin name="SP (freiwillig)" wert={termine.anhaengerSp} onChange={(anhaengerSp) => setTermine((t) => ({ ...t, anhaengerSp }))} heute={heute} />
                   </div>
                 </>
               )}
@@ -464,9 +469,12 @@ export function KontrollAblauf({
         <div className="flex flex-col gap-1">
           <h2 className="font-titel text-lg font-semibold">PRÜFTERMINE & NACHWEISE</h2>
           <p className="text-gray-700">
-            {fristenFehlen > 0
+            {fristenFehlen > 0 || freiwilligFehlen > 0
               ? "Mach einmal ein Foto von jeder Plakette und deinen Papieren. Die App liest das Datum und merkt es sich. Beim nächsten Mal wird dieser Schritt übersprungen."
               : "Alles ist gespeichert. Hast du etwas Neues bekommen, tippe auf „Neu erfassen“."}
+          </p>
+          <p className="text-sm text-gray-600">
+            Pflicht sind Führerschein, Fahrerkarte, Qualifikationsnachweis (Code 95), HU und die UVV-Plaketten. SP, Tacho-Prüfung und Feuerlöscher kannst du überspringen und später nachholen.
           </p>
         </div>
         {!fsDa && (
