@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
 import { PdfKnopf } from "@/components/PdfKnopf";
 import { StatusZeile } from "@/components/StatusZeile";
 import { Karte } from "@/components/ui";
@@ -47,9 +47,9 @@ export default async function UnterweisungenVerwaltung({ params, searchParams }:
   const erledigt = gesamt - liste.reduce((n, x) => n + x.offen, 0);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel="Unterweisungen" untertitel={`${firma.firmen?.name ?? ""} · jährlich mit Test`} zurueck={`/verwaltung/${firmaId}`} />
-      <div className="mx-auto grid w-full max-w-6xl gap-5 p-5 lg:grid-cols-[1fr_20rem]">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf titel="Unterweisungen" untertitel="Jährlich mit Test und Unterschrift" />
+      <div className="grid w-full gap-5 lg:grid-cols-[1fr_20rem]">
         <div className="flex flex-col gap-4">
           {fehler && (
             <p role="alert" className="rounded-xl border-2 border-mangel bg-white p-3 font-semibold text-mangel">

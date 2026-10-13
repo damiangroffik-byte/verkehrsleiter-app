@@ -35,7 +35,7 @@ export async function fahrerAnlegen(firmaId: string, formData: FormData) {
     telefon: text(formData, "telefon"),
   });
   if (error) throw new Error("Fahrer konnte nicht angelegt werden.");
-  revalidatePath(`/verwaltung/${firmaId}`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
 }
 
 export async function fahrzeugAnlegen(firmaId: string, formData: FormData) {
@@ -55,5 +55,5 @@ export async function fahrzeugAnlegen(firmaId: string, formData: FormData) {
     tacho_faellig: text(formData, "tacho_faellig"),
   });
   if (error) throw new Error("Fahrzeug konnte nicht angelegt werden. Gibt es das Kennzeichen schon?");
-  revalidatePath(`/verwaltung/${firmaId}`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
 }

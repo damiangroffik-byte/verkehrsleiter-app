@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Kopfleiste } from "@/components/Kopfleiste";
+import { Seitenkopf } from "@/components/verwaltung/Seitenkopf";
 import { StatusZeile } from "@/components/StatusZeile";
 import { Feld, Frist, Karte, Knopf } from "@/components/ui";
 import { holeNutzer, istVerwalter, jetzt } from "@/lib/daten";
@@ -59,9 +59,9 @@ export default async function FahrerSeite({ params, searchParams }: PageProps<"/
   const bisGeburtstag = f.geburtsdatum ? tageBisGeburtstag(f.geburtsdatum, heuteTag) : null;
 
   return (
-    <main className="flex flex-1 flex-col">
-      <Kopfleiste titel={`${f.vorname} ${f.nachname}`} untertitel={firma.firmen?.name} zurueck={`/verwaltung/${firmaId}`} />
-      <div className="mx-auto flex w-full max-w-md flex-col gap-5 p-5">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Seitenkopf pfad={[{ titel: "Fahrer", href: `/verwaltung/${firmaId}/fahrer` }, { titel: `${f.vorname} ${f.nachname}` }]} titel={`${f.vorname} ${f.nachname}`} />
+      <div className="flex w-full max-w-xl flex-col gap-5">
         {gespeichert && (
           <p role="status" className="rounded-xl border-2 border-ok bg-white p-3 font-semibold text-ok">
             Gespeichert.

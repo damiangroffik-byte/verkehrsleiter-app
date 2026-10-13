@@ -101,6 +101,6 @@ export async function fahrzeugZuordnen(firmaId: string, gruppe: string, formData
     .select("id");
   if (error || !data?.length) redirect(ziel(firmaId, gruppe, { fehler: "Das Fahrzeug konnte nicht zugeordnet werden." }));
   neuLaden(firmaId);
-  revalidatePath(`/verwaltung/${firmaId}`);
+  revalidatePath(`/verwaltung/${firmaId}`, "layout");
   redirect(ziel(firmaId, gruppe, { gespeichert: true }));
 }
