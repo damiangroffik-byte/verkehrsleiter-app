@@ -25,7 +25,7 @@ type MangelDaten = {
   id: string;
   kontrolle_id: string;
   fahrzeug: { kennzeichen: string } | null;
-  antwort: { frage: string; bemerkung: string | null } | null;
+  antwort: { frage: string; bemerkung: string | null; foto_pfade: string[] } | null;
   firma: { name: string } | null;
 };
 
@@ -36,7 +36,7 @@ async function mangelLaden(firmaId: string, mangelId: string) {
   } = await supabase.auth.getUser();
   const { data: m } = await supabase
     .from("maengel")
-    .select("id, kontrolle_id, fahrzeug:fahrzeuge(kennzeichen), antwort:antworten(frage, bemerkung), firma:firmen(name)")
+    .select("id, kontrolle_id, fahrzeug:fahrzeuge(kennzeichen), antwort:antworten(frage, bemerkung, foto_pfade), firma:firmen(name)")
     .eq("id", mangelId)
     .eq("firma_id", firmaId)
     .maybeSingle<MangelDaten>();
@@ -81,6 +81,17 @@ export async function mailAnWerkstatt(firmaId: string, mangelId: string, zurueck
     if (bericht) anhaenge.push({ filename: bericht.dateiname, content: Buffer.from(bericht.pdf), contentType: "application/pdf" });
   } catch (e) {
     console.error("PDF-Bericht fehlgeschlagen", m.kontrolle_id, e);
+  }
+  // Fotos der Beschädigung als eigene Bilder, damit die Werkstatt sie direkt sieht.
+  if (formData.get("fotos") === "on") {
+    const pfade = (m.antwort?.foto_pfade ?? []).slice(0, 5);
+    const fotos = await Promise.all(pfade.map((p) => supabase.storage.from("kontrollen").download(p).then((r) => r.data)));
+    for (const [i, f] of fotos.entries()) {
+      if (!f) continue;
+      const typ = f.type || "image/jpeg";
+      const endung = typ.includes("png") ? "png" : typ.includes("webp") ? "webp" : "jpg";
+      anhaenge.push({ filename: `Foto-${m.fahrzeug?.kennzeichen ?? "Mangel"}-${i + 1}.${endung}`, content: Buffer.from(await f.arrayBuffer()), contentType: typ });
+    }
   }
   try {
     await sendeMail(an, betreff, text, anhaenge, user?.email ?? undefined);

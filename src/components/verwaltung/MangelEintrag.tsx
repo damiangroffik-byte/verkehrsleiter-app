@@ -10,13 +10,13 @@ export type Mangel = {
   status: "offen" | "behoben";
   behoben_am: string | null;
   vermerk: string | null;
-  antwort: { abschnitt: string; frage: string; bemerkung: string | null } | null;
+  antwort: { abschnitt: string; frage: string; bemerkung: string | null; foto_pfade: string[] } | null;
   kontrolle: { id: string; durchgefuehrt_am: string; abfahrt_freigegeben: boolean; fahrer: { id: string; vorname: string; nachname: string } | null } | null;
   fahrzeug: { kennzeichen: string } | null;
 };
 
 export const MANGEL_SPALTEN =
-  "id, status, behoben_am, vermerk, antwort:antworten(abschnitt, frage, bemerkung), kontrolle:kontrollen(id, durchgefuehrt_am, abfahrt_freigegeben, fahrer(id, vorname, nachname)), fahrzeug:fahrzeuge(kennzeichen)";
+  "id, status, behoben_am, vermerk, antwort:antworten(abschnitt, frage, bemerkung, foto_pfade), kontrolle:kontrollen(id, durchgefuehrt_am, abfahrt_freigegeben, fahrer(id, vorname, nachname)), fahrzeug:fahrzeuge(kennzeichen)";
 
 export type Nachricht = {
   id: string;
@@ -142,6 +142,7 @@ export function MangelEintrag({
               bemerkung: m.antwort.bemerkung,
               festgestellt: m.kontrolle?.durchgefuehrt_am ?? null,
               melderId: m.kontrolle?.fahrer?.id ?? null,
+              fotos: m.antwort.foto_pfade.length,
             }}
             firma={weitergabe.firma}
             werkstaetten={weitergabe.werkstaetten}
