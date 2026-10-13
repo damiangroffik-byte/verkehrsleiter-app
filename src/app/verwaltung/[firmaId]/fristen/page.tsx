@@ -43,7 +43,7 @@ export default async function FristenSeite({ params }: PageProps<"/verwaltung/[f
   const [{ data: fahrzeuge }, { data: fahrer }] = await Promise.all([
     supabase
       .from("fahrzeuge")
-      .select("id, kennzeichen, hu_faellig, sp_faellig, tacho_faellig, ladebordwand_uvv_bis, ameise_uvv_bis")
+      .select("id, kennzeichen, hu_faellig, sp_faellig, tacho_faellig, feuerloescher_bis, ladebordwand_uvv_bis, ameise_uvv_bis")
       .eq("firma_id", firmaId)
       .eq("aktiv", true)
       .returns<FristFahrzeug[]>(),
@@ -60,7 +60,7 @@ export default async function FristenSeite({ params }: PageProps<"/verwaltung/[f
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
-      <Seitenkopf titel="Fristen" untertitel="HU, SP, Tacho, UVV sowie Code 95, ADR-Schein und Fahrerkarte" />
+      <Seitenkopf titel="Fristen" untertitel="HU, SP, Tacho, Feuerlöscher, UVV sowie Code 95, ADR-Schein und Fahrerkarte" />
       <Karte titel={`Abgelaufen oder in den nächsten 60 Tagen (${dringend.length})`}>
         {dringend.length > 0 ? (
           <ul className="divide-y divide-gray-200">

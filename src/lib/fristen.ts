@@ -5,6 +5,7 @@ export type FristFahrzeug = {
   hu_faellig: string | null;
   sp_faellig: string | null;
   tacho_faellig: string | null;
+  feuerloescher_bis: string | null;
   ladebordwand_uvv_bis: string | null;
   ameise_uvv_bis: string | null;
 };
@@ -22,6 +23,7 @@ const FAHRZEUG: [keyof FristFahrzeug, string][] = [
   ["hu_faellig", "Hauptuntersuchung (HU)"],
   ["sp_faellig", "Sicherheitsprüfung (SP)"],
   ["tacho_faellig", "Tacho-Prüfung"],
+  ["feuerloescher_bis", "Feuerlöscher"],
   ["ladebordwand_uvv_bis", "UVV Ladebordwand"],
   ["ameise_uvv_bis", "UVV Elektro-Ameise"],
 ];
